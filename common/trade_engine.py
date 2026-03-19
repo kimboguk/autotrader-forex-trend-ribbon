@@ -85,6 +85,7 @@ def simulate_trades(
     filter_positions: dict = None,
     alignment_cols: list = None,
     progress_callback=None,
+    compound: bool = False,
 ) -> tuple[list[dict], np.ndarray]:
     """
     Bar-by-bar trade simulation on a DataFrame with 'signal' column.
@@ -144,17 +145,20 @@ def simulate_trades(
         else:
             pnl_price = entry_price - exit_price
 
+        # Compound mode: scale position size proportionally to current equity
+        scale = (equity / initial_capital) if compound and equity > 0 else 1.0
+
         if category == "index":
-            pnl = pnl_price * point_value * contracts
-            total_cost = cost_per_side * point_value * contracts * 2
+            pnl = pnl_price * point_value * contracts * scale
+            total_cost = cost_per_side * point_value * contracts * 2 * scale
             pnl -= total_cost
         elif category == "crypto":
-            pnl = pnl_price * contracts
-            total_cost = (entry_price + exit_price) * contracts * fee_rate
+            pnl = pnl_price * contracts * scale
+            total_cost = (entry_price + exit_price) * contracts * fee_rate * scale
             pnl -= total_cost
         else:  # forex
-            pnl = pnl_price * units - cost_per_side * units * 2
-            total_cost = cost_per_side * units * 2
+            pnl = (pnl_price * units - cost_per_side * units * 2) * scale
+            total_cost = cost_per_side * units * 2 * scale
             if quote_ccy == "JPY":
                 pnl = pnl / exit_price
                 total_cost = total_cost / exit_price
@@ -333,6 +337,7 @@ def compute_stats(
     symbol: str,
     timeframe: str,
     ma_type: str,
+    compound: bool = False,
 ) -> dict:
     """Compute trade performance statistics."""
 
@@ -379,7 +384,13 @@ def compute_stats(
     if len(equity_df) > 1:
         total_days = (equity_df["time"].iloc[-1] - equity_df["time"].iloc[0]).days
         if total_days > 0:
-            annual_return = (final_equity / initial_capital - 1) * (365 / total_days) * 100
+            years = total_days / 365.25
+            if compound:
+                # CAGR for compound mode
+                annual_return = ((final_equity / initial_capital) ** (1 / years) - 1) * 100
+            else:
+                # Simple annualised return for fixed-lot mode
+                annual_return = (final_equity / initial_capital - 1) / years * 100
         else:
             annual_return = 0.0
     else:

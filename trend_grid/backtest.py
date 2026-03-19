@@ -53,6 +53,7 @@ def run_backtest(
     verbose: bool = True,
     progress_callback=None,
     _keep_cache: bool = False,
+    compound: bool = False,
     # Accept but ignore other strategy params
     fast_period: int = None,
     slow_period: int = None,
@@ -103,6 +104,7 @@ def run_backtest(
         filter_positions=filter_positions,
         alignment_cols=alignment_col_names,
         progress_callback=progress_callback,
+        compound=compound,
     )
 
     # 4) Compute stats
@@ -110,7 +112,7 @@ def run_backtest(
     equity_df = pd.DataFrame({"time": grid.index, "equity": equity_arr})
 
     stats = compute_stats(trades_df, equity_df, BACKTEST_CONFIG["initial_capital"],
-                          symbol, timeframe, ma_type)
+                          symbol, timeframe, ma_type, compound=compound)
 
     if not _keep_cache:
         clear_m1_cache()
