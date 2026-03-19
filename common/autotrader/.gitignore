@@ -1,0 +1,4 @@
+.env
+tr_live_state.json
+logs/
+__pycache__/

@@ -1,0 +1,21 @@
+# Security
+.env
+
+# Data & outputs
+data/
+outputs/
+logs/
+
+# State files
+tr_live_state.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual env
+venv/
+.venv/
+env/
+ICT/NUL
