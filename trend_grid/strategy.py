@@ -83,7 +83,7 @@ def compute_grid(df: pd.DataFrame, ma_type: str = None, periods: list = None) ->
 
 # -- Signal generation -----------------------------------------------------
 
-def generate_signals(df: pd.DataFrame, ma_type: str = None, periods: list = None) -> pd.DataFrame:
+def generate_signals(df: pd.DataFrame, ma_type: str = None, periods: list = None, relaxed_entry: bool = True) -> pd.DataFrame:
     """
     Signal codes:
        0: no change
@@ -103,6 +103,8 @@ def generate_signals(df: pd.DataFrame, ma_type: str = None, periods: list = None
     gt_arr = grid["grid_top"].values
     gb_arr = grid["grid_bottom"].values
     bull_arr = grid["is_bullish"].values
+    open_arr = grid["open"].values
+    close_arr = grid["close"].values
 
     warmup = max(VWMA_PERIODS) + 1
     position = 0
@@ -121,8 +123,24 @@ def generate_signals(df: pd.DataFrame, ma_type: str = None, periods: list = None
             continue
 
         # -- entry checks (transition + direction) --
-        long_entry = bull and (bm > gt) and (prev_bm <= prev_gt)
-        short_entry = (not bull) and (bm < gb) and (prev_bm >= prev_gb)
+        # Standard: prev body_mid was on the other side of grid
+        prev_below_top = prev_bm <= prev_gt
+        prev_above_bot = prev_bm >= prev_gb
+
+        # Relaxed: prev bar straddled the grid boundary (body crosses it)
+        if relaxed_entry:
+            prev_open = open_arr[i - 1]
+            prev_close = close_arr[i - 1]
+            prev_bull = bull_arr[i - 1]
+            # Bearish candle straddling grid_top: close < grid_top < open
+            if not prev_bull and prev_close < prev_gt < prev_open:
+                prev_below_top = True
+            # Bullish candle straddling grid_bottom: open < grid_bottom < close
+            if prev_bull and prev_open < prev_gb < prev_close:
+                prev_above_bot = True
+
+        long_entry = bull and (bm > gt) and prev_below_top
+        short_entry = (not bull) and (bm < gb) and prev_above_bot
 
         if position == 0:
             if long_entry:
