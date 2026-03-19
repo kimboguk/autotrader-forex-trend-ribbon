@@ -2,9 +2,9 @@
 """
 Economic news filter for Trend Ribbon auto-trader.
 
-Fetches high-impact economic events from Myfxbook API and blocks
-new trade entries within a configurable window around each event.
-Exits are never blocked.
+Fetches high-impact economic events from JBlanked Forex Factory API
+and blocks new trade entries within a configurable window around
+each event. Exits are never blocked.
 """
 
 import logging
@@ -28,7 +28,8 @@ CURRENCY_SYMBOL_MAP = {
     "CAD": [],
 }
 
-API_URL = "https://www.myfxbook.com/api/get-economic-calendar.json"
+# JBlanked Forex Factory calendar API (free, 1 req/day limit)
+API_BASE = "https://www.jblanked.com/news/api/forex-factory/calendar"
 
 
 def _get_currencies_for_symbol(symbol: str) -> Set[str]:
@@ -102,15 +103,14 @@ class NewsFilter:
         self._fetch_calendar()
 
     def _fetch_calendar(self):
-        """Fetch today's + tomorrow's high-impact events from Myfxbook."""
-        now = datetime.now(timezone.utc)
-        start = now.strftime("%Y-%m-%d")
-        end = (now + timedelta(days=1)).strftime("%Y-%m-%d")
+        """Fetch this week's high-impact events from JBlanked Forex Factory API."""
+        url = f"{API_BASE}/week/"
 
         try:
             resp = requests.get(
-                API_URL,
-                params={"start": start, "end": end},
+                url,
+                params={"impact": "High"},
+                headers={"Accept": "application/json"},
                 timeout=15,
             )
             resp.raise_for_status()
@@ -119,19 +119,20 @@ class NewsFilter:
             logger.warning("News calendar fetch failed: %s — keeping cached data", e)
             return  # fail-open: keep old cache
 
+        # Handle both list and dict-with-list responses
+        items = data if isinstance(data, list) else data.get("data", data.get("results", []))
+
         events = []
-        for item in data:
-            impact = (item.get("impact") or "").lower()
+        for item in items:
+            impact = (item.get("Impact") or item.get("impact") or "").lower()
             if impact not in self._impact_levels:
                 continue
 
-            # Parse event time
-            date_str = item.get("date", "")     # "Mar 19, 2026"
-            time_str = item.get("time", "")     # "13:30"
-            currency = (item.get("currency") or "").upper()
-            title = item.get("title") or item.get("name") or ""
+            currency = (item.get("Currency") or item.get("currency") or "").upper()
+            title = item.get("Name") or item.get("name") or item.get("Title") or item.get("title") or ""
+            date_str = item.get("Date") or item.get("date") or ""
 
-            event_time = self._parse_event_time(date_str, time_str)
+            event_time = self._parse_event_time(date_str)
             if event_time is None:
                 continue
 
@@ -143,12 +144,15 @@ class NewsFilter:
             })
 
         self._calendar = events
-        self._last_fetch = now
+        self._last_fetch = datetime.now(timezone.utc)
+
+        now = datetime.now(timezone.utc)
+        upcoming = [e for e in events if e["time"] >= now]
         logger.info(
-            "News calendar refreshed: %d high-impact events for %s~%s",
-            len(events), start, end,
+            "News calendar refreshed: %d high-impact events this week (%d upcoming)",
+            len(events), len(upcoming),
         )
-        for ev in events:
+        for ev in upcoming[:10]:  # log up to 10 upcoming
             logger.info(
                 "  %s %s: %s",
                 ev["time"].strftime("%Y-%m-%d %H:%M UTC"),
@@ -157,16 +161,22 @@ class NewsFilter:
             )
 
     @staticmethod
-    def _parse_event_time(date_str: str, time_str: str) -> Optional[datetime]:
-        """Parse Myfxbook date + time strings into UTC datetime."""
-        if not date_str or not time_str:
+    def _parse_event_time(date_str: str) -> Optional[datetime]:
+        """Parse event date/time string into UTC datetime."""
+        if not date_str:
             return None
         try:
-            combined = f"{date_str} {time_str}"
-            # Try common formats
-            for fmt in ["%b %d, %Y %H:%M", "%Y-%m-%d %H:%M", "%m/%d/%Y %H:%M"]:
+            # Try ISO format first (2026-03-19T13:30:00Z or 2026-03-19 13:30:00)
+            for fmt in [
+                "%Y-%m-%dT%H:%M:%SZ",
+                "%Y-%m-%dT%H:%M:%S",
+                "%Y-%m-%d %H:%M:%S",
+                "%Y-%m-%d %H:%M",
+                "%b %d, %Y %H:%M",
+                "%m/%d/%Y %H:%M",
+            ]:
                 try:
-                    return datetime.strptime(combined, fmt).replace(tzinfo=timezone.utc)
+                    return datetime.strptime(date_str, fmt).replace(tzinfo=timezone.utc)
                 except ValueError:
                     continue
             return None

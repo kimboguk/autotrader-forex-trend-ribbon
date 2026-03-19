@@ -40,6 +40,14 @@ def calc_ema(df: pd.DataFrame, period: int) -> pd.Series:
     return df["close"].ewm(span=period, min_periods=period, adjust=False).mean()
 
 
+def calc_wma(df: pd.DataFrame, period: int) -> pd.Series:
+    """Weighted Moving Average — linear weights (newest bar gets highest weight)"""
+    weights = np.arange(1, period + 1, dtype=np.float64)
+    return df["close"].rolling(window=period, min_periods=period).apply(
+        lambda x: np.dot(x, weights) / weights.sum(), raw=True
+    )
+
+
 def calc_ma(df: pd.DataFrame, period: int, ma_type: str = None) -> pd.Series:
     ma_type = ma_type or MA_TYPE
     if ma_type == "vwma":
@@ -48,6 +56,8 @@ def calc_ma(df: pd.DataFrame, period: int, ma_type: str = None) -> pd.Series:
         return calc_sma(df, period)
     elif ma_type == "ema":
         return calc_ema(df, period)
+    elif ma_type == "wma":
+        return calc_wma(df, period)
     raise ValueError(f"Unknown MA type: {ma_type}")
 
 
