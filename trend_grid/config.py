@@ -33,16 +33,16 @@ SYMBOLS = {
     "USDCAD": {"pip_size": 0.0001, "spread_pips": 0.6, "commission_pips": 0.3, "category": "forex", "quote_ccy": "CAD"},
     "EURGBP": {"pip_size": 0.0001, "spread_pips": 0.6, "commission_pips": 0.3, "category": "forex", "quote_ccy": "GBP"},
     "EURCHF": {"pip_size": 0.0001, "spread_pips": 0.6, "commission_pips": 0.3, "category": "forex", "quote_ccy": "CHF"},
-    # ── Index ──
+    # ── Index (CFD-style: 0.1 lot sizing for $10K capital) ──
     "SP500":    {"pip_size": 0.25, "spread_pips": 0.5, "commission_pips": 0, "category": "index",
-                 "point_value": 50, "quote_ccy": "USD", "lot_size": 1},
+                 "point_value": 5, "quote_ccy": "USD", "lot_size": 1},    # $5/point (micro, ~0.1 lot)
     "KOSPI200": {"pip_size": 0.05, "spread_pips": 1.0, "commission_pips": 0, "category": "index",
-                 "point_value": 250000, "quote_ccy": "KRW", "lot_size": 1},
+                 "point_value": 37, "quote_ccy": "USD", "lot_size": 1},   # mini ÷5 ≈ $37/point (KRW→USD)
     "JPN225":   {"pip_size": 1.0, "spread_pips": 7.0, "commission_pips": 0, "category": "index",
-                 "point_value": 500, "quote_ccy": "JPY", "lot_size": 1},
-    # ── Crypto ──
-    "BTCUSD":   {"pip_size": 0.01, "spread_pips": 0, "commission_pips": 0, "category": "crypto",
-                 "point_value": 1, "quote_ccy": "USD", "lot_size": 1, "fee_rate": 0.001},
+                 "point_value": 3.3, "quote_ccy": "USD", "lot_size": 1},  # ¥500/point → ~$3.3 (JPY→USD)
+    # ── Crypto (CFD-style: 0.01 lot = 0.01 BTC) ──
+    "BTCUSD":   {"pip_size": 1.0, "spread_pips": 50, "commission_pips": 0, "category": "crypto",
+                 "point_value": 1, "quote_ccy": "USD", "lot_size": 0.01, "fee_rate": 0.001},
 }
 
 # ── VWMA 그리드 설정 ─────────────────────────────────────────
