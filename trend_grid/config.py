@@ -37,7 +37,7 @@ SYMBOLS = {
     "SP500":    {"pip_size": 0.25, "spread_pips": 0.5, "commission_pips": 0, "category": "index",
                  "point_value": 5, "quote_ccy": "USD", "lot_size": 1},    # $5/point (micro, ~0.1 lot)
     "KOSPI200": {"pip_size": 0.05, "spread_pips": 1.0, "commission_pips": 0, "category": "index",
-                 "point_value": 37, "quote_ccy": "USD", "lot_size": 1},   # mini ÷5 ≈ $37/point (KRW→USD)
+                 "point_value": 34, "quote_ccy": "USD", "lot_size": 1},   # mini ÷5 ≈ $34/point (₩50,000/1,450)
     "JPN225":   {"pip_size": 1.0, "spread_pips": 7.0, "commission_pips": 0, "category": "index",
                  "point_value": 3.3, "quote_ccy": "USD", "lot_size": 1},  # ¥500/point → ~$3.3 (JPY→USD)
     # ── Crypto (CFD-style: 0.01 lot = 0.01 BTC) ──

@@ -5,6 +5,7 @@
 data/
 outputs/
 logs/
+common/bitstamp_data/
 
 # State files
 tr_live_state.json
