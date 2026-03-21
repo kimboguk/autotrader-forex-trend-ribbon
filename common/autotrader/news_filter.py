@@ -28,8 +28,9 @@ CURRENCY_SYMBOL_MAP = {
     "CAD": [],
 }
 
-# JBlanked Forex Factory calendar API (free, 1 req/day limit)
-API_BASE = "https://www.jblanked.com/news/api/forex-factory/calendar"
+# Forex Factory calendar via faireconomy.media (free, no auth)
+API_THIS_WEEK = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
+API_NEXT_WEEK = "https://nfs.faireconomy.media/ff_calendar_nextweek.json"
 
 
 def _get_currencies_for_symbol(symbol: str) -> Set[str]:
@@ -103,34 +104,29 @@ class NewsFilter:
         self._fetch_calendar()
 
     def _fetch_calendar(self):
-        """Fetch this week's high-impact events from JBlanked Forex Factory API."""
-        url = f"{API_BASE}/week/"
+        """Fetch this week's + next week's high-impact events from Forex Factory."""
+        all_items = []
+        for url in [API_THIS_WEEK, API_NEXT_WEEK]:
+            try:
+                resp = requests.get(url, timeout=15)
+                resp.raise_for_status()
+                all_items.extend(resp.json())
+            except Exception as e:
+                logger.warning("News calendar fetch failed (%s): %s", url.split("/")[-1], e)
 
-        try:
-            resp = requests.get(
-                url,
-                params={"impact": "High"},
-                headers={"Accept": "application/json"},
-                timeout=15,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-        except Exception as e:
-            logger.warning("News calendar fetch failed: %s — keeping cached data", e)
-            return  # fail-open: keep old cache
-
-        # Handle both list and dict-with-list responses
-        items = data if isinstance(data, list) else data.get("data", data.get("results", []))
+        if not all_items:
+            logger.warning("No calendar data fetched — keeping cached data")
+            return  # fail-open
 
         events = []
-        for item in items:
-            impact = (item.get("Impact") or item.get("impact") or "").lower()
+        for item in all_items:
+            impact = (item.get("impact") or "").lower()
             if impact not in self._impact_levels:
                 continue
 
-            currency = (item.get("Currency") or item.get("currency") or "").upper()
-            title = item.get("Name") or item.get("name") or item.get("Title") or item.get("title") or ""
-            date_str = item.get("Date") or item.get("date") or ""
+            currency = (item.get("country") or "").upper()
+            title = item.get("title") or ""
+            date_str = item.get("date") or ""
 
             event_time = self._parse_event_time(date_str)
             if event_time is None:
@@ -149,10 +145,10 @@ class NewsFilter:
         now = datetime.now(timezone.utc)
         upcoming = [e for e in events if e["time"] >= now]
         logger.info(
-            "News calendar refreshed: %d high-impact events this week (%d upcoming)",
+            "News calendar refreshed: %d high-impact events (%d upcoming)",
             len(events), len(upcoming),
         )
-        for ev in upcoming[:10]:  # log up to 10 upcoming
+        for ev in upcoming[:10]:
             logger.info(
                 "  %s %s: %s",
                 ev["time"].strftime("%Y-%m-%d %H:%M UTC"),
@@ -166,21 +162,15 @@ class NewsFilter:
         if not date_str:
             return None
         try:
-            # Try ISO format first (2026-03-19T13:30:00Z or 2026-03-19 13:30:00)
-            for fmt in [
-                "%Y-%m-%dT%H:%M:%SZ",
-                "%Y-%m-%dT%H:%M:%S",
-                "%Y-%m-%d %H:%M:%S",
-                "%Y-%m-%d %H:%M",
-                "%b %d, %Y %H:%M",
-                "%m/%d/%Y %H:%M",
-            ]:
-                try:
-                    return datetime.strptime(date_str, fmt).replace(tzinfo=timezone.utc)
-                except ValueError:
-                    continue
-            return None
-        except Exception:
+            # ISO 8601 with timezone offset (e.g. "2026-03-15T17:30:00-04:00")
+            dt = datetime.fromisoformat(date_str)
+            # Convert to UTC
+            if dt.tzinfo is not None:
+                dt = dt.astimezone(timezone.utc)
+            else:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt
+        except (ValueError, TypeError):
             return None
 
     # ── State persistence ───────────────────────────────────

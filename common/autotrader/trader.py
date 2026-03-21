@@ -53,6 +53,9 @@ class TrendRibbonTrader:
 
         self._save_counter = 0
 
+        # Virtual positions for dry-run mode (symbol → direction: 1/-1)
+        self._dry_positions: Dict[str, int] = {}
+
     # ── Main loop ───────────────────────────────────────────
 
     def run(self):
@@ -135,9 +138,13 @@ class TrendRibbonTrader:
         if m30 is None or h4 is None:
             return
 
-        # Current position direction
-        pos = live_positions.get(symbol)
-        current_dir = self._position_direction(pos)
+        # Current position direction (use virtual positions in dry-run)
+        if self.dry_run:
+            current_dir = self._dry_positions.get(symbol, 0)
+            pos = None
+        else:
+            pos = live_positions.get(symbol)
+            current_dir = self._position_direction(pos)
 
         # Check signal
         action = self.signals.update(symbol, m30, h4, current_dir)
@@ -200,6 +207,7 @@ class TrendRibbonTrader:
         if self.dry_run:
             logger.info("[DRY RUN] %s %s %.2f lots @ %.5f, SL=%.5f (%.0f pips)",
                          dir_str, symbol, lot_size, entry_price, sl_price, sl_pips)
+            self._dry_positions[symbol] = direction
             return
 
         ticket = self.mt5.place_market_order(
@@ -217,11 +225,14 @@ class TrendRibbonTrader:
 
     def _do_exit(self, symbol: str, pos: Optional[Dict]):
         """Close position for symbol."""
-        if pos is None:
+        if self.dry_run:
+            if symbol in self._dry_positions:
+                dir_str = "LONG" if self._dry_positions[symbol] == 1 else "SHORT"
+                logger.info("[DRY RUN] EXIT %s (was %s)", symbol, dir_str)
+                del self._dry_positions[symbol]
             return
 
-        if self.dry_run:
-            logger.info("[DRY RUN] EXIT %s ticket=%d", symbol, pos["ticket"])
+        if pos is None:
             return
 
         ok = self.mt5.close_position(pos)

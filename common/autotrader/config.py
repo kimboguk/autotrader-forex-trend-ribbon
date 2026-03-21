@@ -76,7 +76,7 @@ NEWS_FILTER = {
     "enabled": True,
     "before_minutes": 2,
     "after_minutes": 2,
-    "refresh_interval_hours": 12,  # JBlanked free tier: 1 req/day
+    "refresh_interval_hours": 4,
     "impact_levels": ["high"],
 }
 
