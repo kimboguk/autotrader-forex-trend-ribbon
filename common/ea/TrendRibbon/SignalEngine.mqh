@@ -95,7 +95,9 @@ public:
       ENUM_ACTION action = SignalToAction(signal);
 
       // --- Apply H4 filter (entries only, exits always allowed) ---
-      if(action == ACTION_ENTER_LONG || action == ACTION_REVERSE_LONG) {
+      // TEMP: disable H4 filter for debugging
+      bool h4FilterEnabled = false;
+      if(h4FilterEnabled && (action == ACTION_ENTER_LONG || action == ACTION_REVERSE_LONG)) {
          if(m_h4Position[symIdx] != 1) {
             m_log.Info(StringFormat("%s %s blocked by H4 filter (H4=%+d)",
                        g_symbols[symIdx].name,
@@ -107,7 +109,7 @@ public:
          }
       }
 
-      if(action == ACTION_ENTER_SHORT || action == ACTION_REVERSE_SHORT) {
+      if(h4FilterEnabled && (action == ACTION_ENTER_SHORT || action == ACTION_REVERSE_SHORT)) {
          if(m_h4Position[symIdx] != -1) {
             m_log.Info(StringFormat("%s %s blocked by H4 filter (H4=%+d)",
                        g_symbols[symIdx].name,
@@ -162,6 +164,11 @@ private:
       if(newPos != oldPos) {
          m_log.Info(StringFormat("H4 filter %s: %+d -> %+d",
                     g_symbols[symIdx].name, oldPos, newPos));
+         PrintFormat("[H4] %s %s pos:%+d->%+d close=%.5f gt=%.5f gb=%.5f bm=%.5f bull=%d | prev_bm=%.5f prev_gt=%.5f",
+                     g_symbols[symIdx].name,
+                     TimeToString(m_grid.GetBarTime(symIdx, 1, 1), TIME_DATE|TIME_MINUTES),
+                     oldPos, newPos, curr.close, curr.gridTop, curr.gridBottom,
+                     curr.bodyMid, curr.isBullish, prev.bodyMid, prev.gridTop);
       }
       m_h4Position[symIdx] = newPos;
    }
@@ -185,7 +192,13 @@ private:
          if(!m_grid.GetGridValues(symIdx, 1, shift + 1, prev)) continue;
          if(!curr.valid || !prev.valid) continue;
 
-         position = ComputeNextPosition(position, curr, prev);
+         int newP = ComputeNextPosition(position, curr, prev);
+         if(newP != position) {
+            PrintFormat("[H4-BOOT] %s shift=%d pos:%+d->%+d close=%.5f gt=%.5f gb=%.5f bm=%.5f bull=%d",
+                        sym, shift, position, newP,
+                        curr.close, curr.gridTop, curr.gridBottom, curr.bodyMid, curr.isBullish);
+         }
+         position = newP;
       }
 
       if(position != m_h4Position[symIdx]) {
