@@ -95,9 +95,7 @@ public:
       ENUM_ACTION action = SignalToAction(signal);
 
       // --- Apply H4 filter (entries only, exits always allowed) ---
-      // TEMP: disable H4 filter for debugging
-      bool h4FilterEnabled = false;
-      if(h4FilterEnabled && (action == ACTION_ENTER_LONG || action == ACTION_REVERSE_LONG)) {
+      if(action == ACTION_ENTER_LONG || action == ACTION_REVERSE_LONG) {
          if(m_h4Position[symIdx] != 1) {
             m_log.Info(StringFormat("%s %s blocked by H4 filter (H4=%+d)",
                        g_symbols[symIdx].name,
@@ -109,7 +107,7 @@ public:
          }
       }
 
-      if(h4FilterEnabled && (action == ACTION_ENTER_SHORT || action == ACTION_REVERSE_SHORT)) {
+      if(action == ACTION_ENTER_SHORT || action == ACTION_REVERSE_SHORT) {
          if(m_h4Position[symIdx] != -1) {
             m_log.Info(StringFormat("%s %s blocked by H4 filter (H4=%+d)",
                        g_symbols[symIdx].name,

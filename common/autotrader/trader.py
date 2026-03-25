@@ -104,13 +104,20 @@ class TrendRibbonTrader:
 
         self.risk.update(acct)
 
-        if self.risk.should_close_all():
-            self._close_all_positions()
-            time.sleep(POLL_INTERVAL_SEC)
-            return
-
         # Get current positions for this strategy
         live_positions = self.mt5.get_positions_by_magic(MAGIC_NUMBER)
+
+        if self.risk.should_close_all():
+            if live_positions:
+                self._close_all_positions()
+            else:
+                logger.warning(
+                    "Risk limit exceeded but no strategy positions to close "
+                    "(manual positions may be causing the drawdown). "
+                    "New entries blocked."
+                )
+            time.sleep(POLL_INTERVAL_SEC)
+            return
 
         # Process each symbol
         for symbol in LIVE_SYMBOLS:

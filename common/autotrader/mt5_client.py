@@ -134,9 +134,10 @@ class MT5Client:
         if info is None:
             return self.mt5.ORDER_FILLING_IOC
         modes = info.filling_mode
-        if modes & self.mt5.SYMBOL_FILLING_FOK:
+        # filling_mode bitmask: bit0 (1)=FOK, bit1 (2)=IOC
+        if modes & 1:
             return self.mt5.ORDER_FILLING_FOK
-        if modes & self.mt5.SYMBOL_FILLING_IOC:
+        if modes & 2:
             return self.mt5.ORDER_FILLING_IOC
         return self.mt5.ORDER_FILLING_RETURN
 
