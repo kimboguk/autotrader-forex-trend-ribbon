@@ -54,6 +54,7 @@ def run_backtest(
     progress_callback=None,
     _keep_cache: bool = False,
     compound: bool = False,
+    next_bar_open: bool = True,
     # Accept but ignore other strategy params
     fast_period: int = None,
     slow_period: int = None,
@@ -105,6 +106,7 @@ def run_backtest(
         alignment_cols=alignment_col_names,
         progress_callback=progress_callback,
         compound=compound,
+        next_bar_open=next_bar_open,
     )
 
     # 4) Compute stats

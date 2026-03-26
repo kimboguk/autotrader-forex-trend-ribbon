@@ -86,6 +86,7 @@ def simulate_trades(
     alignment_cols: list = None,
     progress_callback=None,
     compound: bool = False,
+    next_bar_open: bool = True,
 ) -> tuple[list[dict], np.ndarray]:
     """
     Bar-by-bar trade simulation on a DataFrame with 'signal' column.
@@ -258,6 +259,17 @@ def simulate_trades(
             equity_arr[i] = equity
             continue
 
+        # Execution price: signal bar close (legacy) or next bar open (realistic)
+        if next_bar_open:
+            if i + 1 >= n_bars:
+                equity_arr[i] = equity
+                continue  # last bar — cannot execute on next open
+            exec_price = open_arr[i + 1]
+            exec_time = time_idx[i + 1]
+        else:
+            exec_price = close
+            exec_time = t
+
         def _filter_allows(direction):
             if not filter_arrs:
                 return True
@@ -276,40 +288,40 @@ def simulate_trades(
 
         if sig == 1:
             if entry_dir == -1:
-                _record_trade(t, close, "short", "signal")
+                _record_trade(exec_time, exec_price, "short", "signal")
                 entry_dir = 0
             if entry_dir == 0:
                 if _filter_allows(1) and _alignment_allows(1):
-                    entry_price = close
-                    entry_time = t
+                    entry_price = exec_price
+                    entry_time = exec_time
                     entry_dir = 1
 
         elif sig == -1:
             if entry_dir == 1:
-                _record_trade(t, close, "long", "signal")
+                _record_trade(exec_time, exec_price, "long", "signal")
                 entry_dir = 0
             if entry_dir == 0:
                 if _filter_allows(-1) and _alignment_allows(-1):
-                    entry_price = close
-                    entry_time = t
+                    entry_price = exec_price
+                    entry_time = exec_time
                     entry_dir = -1
 
         elif sig == 2:
             if entry_dir == -1:
-                _record_trade(t, close, "short", "signal")
+                _record_trade(exec_time, exec_price, "short", "signal")
             if _filter_allows(1) and _alignment_allows(1):
-                entry_price = close
-                entry_time = t
+                entry_price = exec_price
+                entry_time = exec_time
                 entry_dir = 1
             else:
                 entry_dir = 0
 
         elif sig == -2:
             if entry_dir == 1:
-                _record_trade(t, close, "long", "signal")
+                _record_trade(exec_time, exec_price, "long", "signal")
             if _filter_allows(-1) and _alignment_allows(-1):
-                entry_price = close
-                entry_time = t
+                entry_price = exec_price
+                entry_time = exec_time
                 entry_dir = -1
             else:
                 entry_dir = 0
