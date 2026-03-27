@@ -179,16 +179,35 @@ def simulate_trades(
             "exit_reason": exit_reason,
         })
 
-    sig_arr = grid["signal"].values
     close_arr = grid["close"].values
     high_arr = grid["high"].values
     low_arr = grid["low"].values
     open_arr = grid["open"].values
     time_idx = grid.index
 
+    # EA-style: compute signals from actual position using grid columns
+    # Legacy: use pre-computed 'signal' column (no filter interaction issues)
+    ea_style = all(col in grid.columns for col in
+                   ["grid_top", "grid_bottom", "body_mid", "is_bullish"])
+
+    if ea_style:
+        bm_arr = grid["body_mid"].values
+        gt_arr = grid["grid_top"].values
+        gb_arr = grid["grid_bottom"].values
+        bull_arr = grid["is_bullish"].values
+        from config import VWMA_PERIODS
+        warmup = max(VWMA_PERIODS) + 1
+        # Check for relaxed_entry config
+        try:
+            from config import MA_TYPE as _ma_type
+        except ImportError:
+            pass
+    else:
+        sig_arr = grid["signal"].values
+        warmup = 0
+
     current_year = None
     for i in range(n_bars):
-        sig = sig_arr[i]
         close = close_arr[i]
         high = high_arr[i]
         low = low_arr[i]
@@ -254,79 +273,166 @@ def simulate_trades(
                 equity_arr[i] = equity
                 continue
 
-        # ── Signal-based exit/entry ──
-        if sig == 0:
-            equity_arr[i] = equity
-            continue
-
-        # Execution price: signal bar close (legacy) or next bar open (realistic)
-        if next_bar_open:
-            if i + 1 >= n_bars:
+        # ── Compute signal based on actual position (EA-style) ──
+        if ea_style:
+            if i < warmup or np.isnan(gt_arr[i]) or np.isnan(gt_arr[i - 1]):
                 equity_arr[i] = equity
-                continue  # last bar — cannot execute on next open
-            exec_price = open_arr[i + 1]
-            exec_time = time_idx[i + 1]
-        else:
-            exec_price = close
-            exec_time = t
+                continue
 
-        def _filter_allows(direction):
-            if not filter_arrs:
-                return True
-            return all(fp[i] == direction for fp in filter_arrs.values())
+            # Entry conditions using actual entry_dir
+            prev_below_top = bm_arr[i - 1] <= gt_arr[i - 1]
+            prev_above_bot = bm_arr[i - 1] >= gb_arr[i - 1]
 
-        def _alignment_allows(direction):
-            if not alignment_arrs:
-                return True
-            vals = [arr[i] for arr in alignment_arrs]
-            if any(np.isnan(v) for v in vals):
-                return True
-            if direction == 1:
-                return all(vals[j] > vals[j+1] for j in range(len(vals)-1))
-            else:
-                return all(vals[j] < vals[j+1] for j in range(len(vals)-1))
+            # Relaxed entry
+            prev_bull = bull_arr[i - 1]
+            prev_open = open_arr[i - 1]
+            prev_close = close_arr[i - 1]
+            if not prev_bull and prev_close < gt_arr[i - 1] < prev_open:
+                prev_below_top = True
+            if prev_bull and prev_open < gb_arr[i - 1] < prev_close:
+                prev_above_bot = True
 
-        if sig == 1:
-            if entry_dir == -1:
-                _record_trade(exec_time, exec_price, "short", "signal")
-                entry_dir = 0
+            long_entry = bull_arr[i] and (bm_arr[i] > gt_arr[i]) and prev_below_top
+            short_entry = (not bull_arr[i]) and (bm_arr[i] < gb_arr[i]) and prev_above_bot
+            long_exit = (not bull_arr[i]) and (bm_arr[i] < gt_arr[i])
+            short_exit = bull_arr[i] and (bm_arr[i] > gb_arr[i])
+
+            # Determine action from actual position
+            action = None  # "enter_long", "enter_short", "exit", "reverse_long", "reverse_short"
             if entry_dir == 0:
+                if long_entry:
+                    action = "enter_long"
+                elif short_entry:
+                    action = "enter_short"
+            elif entry_dir == 1:
+                if long_exit:
+                    action = "reverse_short" if short_entry else "exit"
+            elif entry_dir == -1:
+                if short_exit:
+                    action = "reverse_long" if long_entry else "exit"
+
+            if action is None:
+                equity_arr[i] = equity
+                continue
+
+            # Execution price
+            if next_bar_open:
+                if i + 1 >= n_bars:
+                    equity_arr[i] = equity
+                    continue
+                exec_price = open_arr[i + 1]
+                exec_time = time_idx[i + 1]
+            else:
+                exec_price = close
+                exec_time = t
+
+            def _filter_allows_ea(direction):
+                if not filter_arrs:
+                    return True
+                return all(fp[i] == direction for fp in filter_arrs.values())
+
+            # Apply H4 filter + execute
+            if action == "enter_long":
+                if _filter_allows_ea(1):
+                    entry_price = exec_price
+                    entry_time = exec_time
+                    entry_dir = 1
+            elif action == "enter_short":
+                if _filter_allows_ea(-1):
+                    entry_price = exec_price
+                    entry_time = exec_time
+                    entry_dir = -1
+            elif action == "exit":
+                direction = "long" if entry_dir == 1 else "short"
+                _record_trade(exec_time, exec_price, direction)
+                entry_dir = 0
+            elif action == "reverse_long":
+                _record_trade(exec_time, exec_price, "short")
+                if _filter_allows_ea(1):
+                    entry_price = exec_price
+                    entry_time = exec_time
+                    entry_dir = 1
+                else:
+                    entry_dir = 0
+            elif action == "reverse_short":
+                _record_trade(exec_time, exec_price, "long")
+                if _filter_allows_ea(-1):
+                    entry_price = exec_price
+                    entry_time = exec_time
+                    entry_dir = -1
+                else:
+                    entry_dir = 0
+
+        else:
+            # ── Legacy: pre-computed signal column ──
+            sig = sig_arr[i]
+            if sig == 0:
+                equity_arr[i] = equity
+                continue
+
+            if next_bar_open:
+                if i + 1 >= n_bars:
+                    equity_arr[i] = equity
+                    continue
+                exec_price = open_arr[i + 1]
+                exec_time = time_idx[i + 1]
+            else:
+                exec_price = close
+                exec_time = t
+
+            def _filter_allows(direction):
+                if not filter_arrs:
+                    return True
+                return all(fp[i] == direction for fp in filter_arrs.values())
+
+            def _alignment_allows(direction):
+                if not alignment_arrs:
+                    return True
+                vals = [arr[i] for arr in alignment_arrs]
+                if any(np.isnan(v) for v in vals):
+                    return True
+                if direction == 1:
+                    return all(vals[j] > vals[j+1] for j in range(len(vals)-1))
+                else:
+                    return all(vals[j] < vals[j+1] for j in range(len(vals)-1))
+
+            if sig == 1:
+                if entry_dir == -1:
+                    _record_trade(exec_time, exec_price, "short", "signal")
+                    entry_dir = 0
+                if entry_dir == 0:
+                    if _filter_allows(1) and _alignment_allows(1):
+                        entry_price = exec_price
+                        entry_time = exec_time
+                        entry_dir = 1
+            elif sig == -1:
+                if entry_dir == 1:
+                    _record_trade(exec_time, exec_price, "long", "signal")
+                    entry_dir = 0
+                if entry_dir == 0:
+                    if _filter_allows(-1) and _alignment_allows(-1):
+                        entry_price = exec_price
+                        entry_time = exec_time
+                        entry_dir = -1
+            elif sig == 2:
+                if entry_dir == -1:
+                    _record_trade(exec_time, exec_price, "short", "signal")
                 if _filter_allows(1) and _alignment_allows(1):
                     entry_price = exec_price
                     entry_time = exec_time
                     entry_dir = 1
-
-        elif sig == -1:
-            if entry_dir == 1:
-                _record_trade(exec_time, exec_price, "long", "signal")
-                entry_dir = 0
-            if entry_dir == 0:
+                else:
+                    entry_dir = 0
+            elif sig == -2:
+                if entry_dir == 1:
+                    _record_trade(exec_time, exec_price, "long", "signal")
                 if _filter_allows(-1) and _alignment_allows(-1):
                     entry_price = exec_price
                     entry_time = exec_time
                     entry_dir = -1
+                else:
+                    entry_dir = 0
 
-        elif sig == 2:
-            if entry_dir == -1:
-                _record_trade(exec_time, exec_price, "short", "signal")
-            if _filter_allows(1) and _alignment_allows(1):
-                entry_price = exec_price
-                entry_time = exec_time
-                entry_dir = 1
-            else:
-                entry_dir = 0
-
-        elif sig == -2:
-            if entry_dir == 1:
-                _record_trade(exec_time, exec_price, "long", "signal")
-            if _filter_allows(-1) and _alignment_allows(-1):
-                entry_price = exec_price
-                entry_time = exec_time
-                entry_dir = -1
-            else:
-                entry_dir = 0
-
-        peak_equity = max(equity, equity)
         equity_arr[i] = equity
 
     # Force-close open position at last bar
@@ -335,7 +441,7 @@ def simulate_trades(
         t = time_idx[-1]
         direction = "long" if entry_dir == 1 else "short"
         _record_trade(t, close, direction, "forced")
-        equity_arr[-1] = equity  # reflect force-close P&L in equity curve
+        equity_arr[-1] = equity
 
     return trades, equity_arr
 

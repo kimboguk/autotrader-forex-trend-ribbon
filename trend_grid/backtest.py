@@ -16,7 +16,7 @@ if sys.platform == 'win32':
     sys.stdout.reconfigure(encoding='utf-8')
 
 from config import SYMBOLS, BACKTEST_CONFIG, RESAMPLE_RULES
-from strategy import generate_signals
+from strategy import compute_grid, generate_signals
 from trade_engine import (
     load_ohlcv, calc_trade_cost, simulate_trades, compute_stats,
     clear_m1_cache, _load_m1_cached,
@@ -68,10 +68,10 @@ def run_backtest(
         print(f"  [{timeframe}] Loaded {len(df):,} bars "
               f"({df.index[0]} ~ {df.index[-1]})")
 
-    # 2) Generate signals
+    # 2) Compute grid (EA-style: signals computed inline during simulation)
     if progress_callback:
-        progress_callback(f"Generating {timeframe} signals...")
-    grid = generate_signals(df, ma_type, periods=ribbon_periods)
+        progress_callback(f"Computing {timeframe} grid...")
+    grid = compute_grid(df, ma_type, periods=ribbon_periods)
 
     # Build higher TF filters
     TF_RANK = {"D1": 5, "H4": 4, "H1": 3, "M30": 2, "M15": 1, "M5": 0, "M1": -1}
