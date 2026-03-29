@@ -55,11 +55,21 @@ def run_backtest(
     _keep_cache: bool = False,
     compound: bool = False,
     next_bar_open: bool = True,
+    allowed_entry_hours: set = None,
     # Accept but ignore other strategy params
     fast_period: int = None,
     slow_period: int = None,
 ) -> dict:
     """Run Trend Grid backtest."""
+    # Auto-apply per-symbol entry hours from config
+    # Pass allowed_entry_hours=set() to explicitly disable (allow all hours)
+    if allowed_entry_hours is None:
+        try:
+            from config import ALLOWED_ENTRY_HOURS_BY_SYMBOL
+            allowed_entry_hours = ALLOWED_ENTRY_HOURS_BY_SYMBOL.get(symbol)
+        except ImportError:
+            pass
+
     # 1) Load data
     if progress_callback:
         progress_callback(f"Loading {symbol} {timeframe}...")
@@ -107,6 +117,7 @@ def run_backtest(
         progress_callback=progress_callback,
         compound=compound,
         next_bar_open=next_bar_open,
+        allowed_entry_hours=allowed_entry_hours,
     )
 
     # 4) Compute stats

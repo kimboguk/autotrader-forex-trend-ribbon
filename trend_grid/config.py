@@ -74,6 +74,30 @@ RESAMPLE_RULES = {
 # "ema"  = Exponential MA (기본값)
 MA_TYPE = "ema"
 
+# ── 진입 시간 필터 (KST 기준, 심볼별) ──────────────────────────
+# Python 데이터는 UTC-7 기준. KST(UTC+9)로 변환: +16시간
+DATA_TO_KST_OFFSET = 16  # Python data(UTC-7) → KST(UTC+9): +16h
+
+def _kst_to_data_hours(kst_hours):
+    """KST 시간 set → Python data timezone 시간 set 변환"""
+    return {(h - DATA_TO_KST_OFFSET) % 24 for h in kst_hours}
+
+ALLOWED_ENTRY_HOURS_KST_BY_SYMBOL = {
+    "EURUSD": {17, 18, 20, 21, 22},
+    "USDJPY": {6, 7, 8, 9, 14, 20, 21, 22, 23, 0},
+    "EURJPY": {14, 21, 22, 23, 0, 1, 2},
+    "XAUUSD": {1, 2, 3, 4, 7, 15, 16, 17, 18, 19, 20, 21, 22},
+    "GBPUSD": {1, 2, 14, 17, 18, 21, 22, 23, 0},
+}
+
+ALLOWED_ENTRY_HOURS_BY_SYMBOL = {
+    sym: _kst_to_data_hours(hours)
+    for sym, hours in ALLOWED_ENTRY_HOURS_KST_BY_SYMBOL.items()
+}
+
+# 기본값 (심볼 미지정 시): 전체 허용
+ALLOWED_ENTRY_HOURS = None
+
 # ── 거래 비용 ────────────────────────────────────────────────
 # 진입 시: spread (반영)
 # 왕복: spread + commission * 2

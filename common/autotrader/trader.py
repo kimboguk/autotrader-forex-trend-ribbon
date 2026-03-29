@@ -165,14 +165,14 @@ class TrendRibbonTrader:
             self._do_exit(symbol, pos)
 
         elif act in ("enter_long", "enter_short"):
-            if self.risk.can_enter() and self._news_allows_entry(symbol):
+            if self.risk.can_enter() and self._news_allows_entry(symbol) and self._hour_allows_entry():
                 direction = 1 if act == "enter_long" else -1
                 self._do_enter(symbol, direction, acct)
 
         elif act in ("reverse_long", "reverse_short"):
             # Exit first (always allowed), then enter if permitted
             self._do_exit(symbol, pos)
-            if self.risk.can_enter() and self._news_allows_entry(symbol):
+            if self.risk.can_enter() and self._news_allows_entry(symbol) and self._hour_allows_entry():
                 direction = 1 if act == "reverse_long" else -1
                 self._do_enter(symbol, direction, acct)
 
@@ -264,6 +264,13 @@ class TrendRibbonTrader:
         if self.news is None:
             return True
         return self.news.can_enter(symbol)
+
+    def _hour_allows_entry(self) -> bool:
+        """Check if current KST hour allows entry."""
+        from datetime import datetime, timezone, timedelta
+        kst = datetime.now(timezone(timedelta(hours=9)))
+        allowed_kst = {17, 18, 20, 21, 22}
+        return kst.hour in allowed_kst
 
     @staticmethod
     def _position_direction(pos: Optional[Dict]) -> int:

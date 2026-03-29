@@ -35,9 +35,13 @@ input double InpSLBudgetUSD    = 2000;   // Emergency SL budget per symbol
 
 //--- News Filter
 input group "=== News Filter ==="
-input bool   InpNewsFilter      = true;   // Enable news filter
+input bool   InpNewsFilter      = false;  // Enable news filter
 input int    InpNewsBeforeMin   = 2;      // Minutes before event
 input int    InpNewsAfterMin    = 2;      // Minutes after event
+
+//--- Entry Time Filter (server time, FTMO UTC+1)
+input group "=== Entry Time Filter ==="
+input string InpAllowedHours = "9,10,12,13,14"; // Allowed entry hours (server time, empty=all)
 
 //--- Execution
 input group "=== Execution ==="

@@ -87,6 +87,7 @@ def simulate_trades(
     progress_callback=None,
     compound: bool = False,
     next_bar_open: bool = True,
+    allowed_entry_hours: set = None,
 ) -> tuple[list[dict], np.ndarray]:
     """
     Bar-by-bar trade simulation on a DataFrame with 'signal' column.
@@ -331,14 +332,19 @@ def simulate_trades(
                     return True
                 return all(fp[i] == direction for fp in filter_arrs.values())
 
-            # Apply H4 filter + execute
+            def _hour_allows_entry():
+                if not allowed_entry_hours:  # None or empty set
+                    return True
+                return exec_time.hour in allowed_entry_hours
+
+            # Apply H4 filter + time filter + execute (exit always allowed)
             if action == "enter_long":
-                if _filter_allows_ea(1):
+                if _filter_allows_ea(1) and _hour_allows_entry():
                     entry_price = exec_price
                     entry_time = exec_time
                     entry_dir = 1
             elif action == "enter_short":
-                if _filter_allows_ea(-1):
+                if _filter_allows_ea(-1) and _hour_allows_entry():
                     entry_price = exec_price
                     entry_time = exec_time
                     entry_dir = -1
@@ -348,7 +354,7 @@ def simulate_trades(
                 entry_dir = 0
             elif action == "reverse_long":
                 _record_trade(exec_time, exec_price, "short")
-                if _filter_allows_ea(1):
+                if _filter_allows_ea(1) and _hour_allows_entry():
                     entry_price = exec_price
                     entry_time = exec_time
                     entry_dir = 1
@@ -356,7 +362,7 @@ def simulate_trades(
                     entry_dir = 0
             elif action == "reverse_short":
                 _record_trade(exec_time, exec_price, "long")
-                if _filter_allows_ea(-1):
+                if _filter_allows_ea(-1) and _hour_allows_entry():
                     entry_price = exec_price
                     entry_time = exec_time
                     entry_dir = -1

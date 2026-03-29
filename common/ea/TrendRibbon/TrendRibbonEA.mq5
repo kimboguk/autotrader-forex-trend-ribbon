@@ -22,6 +22,52 @@ CRiskManager     g_risk;
 CNewsFilter      g_news;
 bool             g_isTester = false;
 
+// Parsed allowed entry hours
+bool             g_allowedHours[24];
+bool             g_useTimeFilter = false;
+
+//+------------------------------------------------------------------+
+//| Parse allowed hours string into boolean array                      |
+//+------------------------------------------------------------------+
+void ParseAllowedHours() {
+   // Initialize all hours as allowed
+   for(int i = 0; i < 24; i++)
+      g_allowedHours[i] = true;
+
+   string hours = InpAllowedHours;
+   StringTrimLeft(hours);
+   StringTrimRight(hours);
+
+   if(StringLen(hours) == 0)
+      return;  // No filter — all hours allowed
+
+   g_useTimeFilter = true;
+
+   // Block all, then enable specified hours
+   for(int i = 0; i < 24; i++)
+      g_allowedHours[i] = false;
+
+   string parts[];
+   int count = StringSplit(hours, ',', parts);
+   for(int i = 0; i < count; i++) {
+      StringTrimLeft(parts[i]);
+      StringTrimRight(parts[i]);
+      int h = (int)StringToInteger(parts[i]);
+      if(h >= 0 && h < 24)
+         g_allowedHours[h] = true;
+   }
+}
+
+//+------------------------------------------------------------------+
+//| Check if current server hour allows entry                          |
+//+------------------------------------------------------------------+
+bool IsEntryHourAllowed() {
+   if(!g_useTimeFilter) return true;
+   MqlDateTime dt;
+   TimeCurrent(dt);
+   return g_allowedHours[dt.hour];
+}
+
 //+------------------------------------------------------------------+
 //| Expert initialization                                             |
 //+------------------------------------------------------------------+
@@ -64,6 +110,9 @@ int OnInit() {
       else if(_Symbol == "GBPUSD") g_symbols[0].lotSize = InpLotGBPUSD;
       else                         g_symbols[0].lotSize = 0.1;
    }
+
+   // Parse entry time filter
+   ParseAllowedHours();
 
    // Initialize components
    if(!g_logger.Init("TrendRibbon.log", !MQLInfoInteger(MQL_TESTER))) {
@@ -108,6 +157,7 @@ int OnInit() {
    g_logger.Info(StringFormat("  Emergency SL budget: $%.0f/symbol", InpSLBudgetUSD));
    g_logger.Info(StringFormat("  News filter: %s", InpNewsFilter ? "ON" : "OFF"));
    g_logger.Info(StringFormat("  Relaxed entry: %s", InpRelaxedEntry ? "ON" : "OFF"));
+   g_logger.Info(StringFormat("  Entry hours: %s", g_useTimeFilter ? InpAllowedHours : "ALL"));
    g_logger.Info("============================================================");
 
    return INIT_SUCCEEDED;
@@ -192,24 +242,24 @@ void ProcessSymbol(int symIdx) {
          break;
 
       case ACTION_ENTER_LONG:
-         if(g_risk.CanEnter() && g_news.CanEnter(sym))
+         if(g_risk.CanEnter() && g_news.CanEnter(sym) && IsEntryHourAllowed())
             DoEnter(symIdx, 1);
          break;
 
       case ACTION_ENTER_SHORT:
-         if(g_risk.CanEnter() && g_news.CanEnter(sym))
+         if(g_risk.CanEnter() && g_news.CanEnter(sym) && IsEntryHourAllowed())
             DoEnter(symIdx, -1);
          break;
 
       case ACTION_REVERSE_LONG:
          DoExit(symIdx);
-         if(g_risk.CanEnter() && g_news.CanEnter(sym))
+         if(g_risk.CanEnter() && g_news.CanEnter(sym) && IsEntryHourAllowed())
             DoEnter(symIdx, 1);
          break;
 
       case ACTION_REVERSE_SHORT:
          DoExit(symIdx);
-         if(g_risk.CanEnter() && g_news.CanEnter(sym))
+         if(g_risk.CanEnter() && g_news.CanEnter(sym) && IsEntryHourAllowed())
             DoEnter(symIdx, -1);
          break;
    }
@@ -243,7 +293,11 @@ void DoEnter(int symIdx, int direction) {
    // Emergency SL
    double sl = g_risk.CalcEmergencySL(direction, price, lot,
                g_symbols[symIdx].pipSize, pipVal);
-   double slPips = MathAbs(price - sl) / g_symbols[symIdx].pipSize;
+
+   // Clamp SL to valid range (must be positive, set 0 to disable if invalid)
+   if(sl <= 0) sl = 0;
+
+   double slPips = (sl > 0) ? MathAbs(price - sl) / g_symbols[symIdx].pipSize : 0;
 
    // Determine filling mode
    ENUM_ORDER_TYPE_FILLING filling = GetFillingMode(sym);
