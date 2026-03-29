@@ -83,11 +83,11 @@ def _kst_to_data_hours(kst_hours):
     return {(h - DATA_TO_KST_OFFSET) % 24 for h in kst_hours}
 
 ALLOWED_ENTRY_HOURS_KST_BY_SYMBOL = {
-    "EURUSD": {17, 18, 20, 21, 22},
-    "USDJPY": {6, 7, 8, 9, 14, 20, 21, 22, 23, 0},
-    "EURJPY": {14, 21, 22, 23, 0, 1, 2},
-    "XAUUSD": {1, 2, 3, 4, 7, 15, 16, 17, 18, 19, 20, 21, 22},
-    "GBPUSD": {1, 2, 14, 17, 18, 21, 22, 23, 0},
+    "EURUSD": {17, 18, 20, 21, 22},         # 런던 오후~뉴욕 전반
+    "USDJPY": {8, 21, 22},                   # 도쿄 장 + 런던-뉴욕 오버랩
+    "EURJPY": {21, 22},                      # 런던-뉴욕 오버랩
+    "XAUUSD": {2, 15, 22},                   # 뉴욕 후반 + 런던 개시 + 런던-뉴욕 오버랩
+    "GBPUSD": {1, 17, 21, 22},               # 뉴욕 후반 + 런던 개시 + 런던-뉴욕 오버랩
 }
 
 ALLOWED_ENTRY_HOURS_BY_SYMBOL = {
