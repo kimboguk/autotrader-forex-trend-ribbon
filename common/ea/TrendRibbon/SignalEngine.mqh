@@ -72,21 +72,6 @@ public:
 
       m_lastM30Bar[symIdx] = m30Time;
 
-      // --- DEBUG: log every 1000th M30 bar ---
-      static int dbgCount = 0;
-      dbgCount++;
-      if(dbgCount <= 3 || dbgCount % 1000 == 0) {
-         GridValues dbgCurr, dbgPrev;
-         m_grid.GetGridValues(symIdx, 0, 1, dbgCurr);
-         m_grid.GetGridValues(symIdx, 0, 2, dbgPrev);
-         PrintFormat("[DBG#%d] %s M30=%s H4pos=%+d pos=%d | gridTop=%.5f gridBot=%.5f bodyMid=%.5f bull=%d | prev_bm=%.5f prev_gt=%.5f",
-                     dbgCount, g_symbols[symIdx].name,
-                     TimeToString(m30Time, TIME_DATE|TIME_MINUTES),
-                     m_h4Position[symIdx], currentPosition,
-                     dbgCurr.gridTop, dbgCurr.gridBottom, dbgCurr.bodyMid, dbgCurr.isBullish,
-                     dbgPrev.bodyMid, dbgPrev.gridTop);
-      }
-
       // --- Compute signal ---
       int signal = CheckSignal(symIdx, currentPosition);
       if(signal == SIG_NONE)

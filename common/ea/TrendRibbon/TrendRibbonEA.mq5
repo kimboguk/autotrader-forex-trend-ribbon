@@ -22,30 +22,28 @@ CRiskManager     g_risk;
 CNewsFilter      g_news;
 bool             g_isTester = false;
 
-// Parsed allowed entry hours
-bool             g_allowedHours[24];
-bool             g_useTimeFilter = false;
+// Per-symbol allowed entry hours [symbolIdx][hour]
+bool             g_allowedHours[MAX_SYMBOLS][24];
+bool             g_useTimeFilter[MAX_SYMBOLS];
 
 //+------------------------------------------------------------------+
-//| Parse allowed hours string into boolean array                      |
+//| Parse hours string into boolean array for one symbol               |
 //+------------------------------------------------------------------+
-void ParseAllowedHours() {
-   // Initialize all hours as allowed
+void ParseHoursString(string hours, int symIdx) {
    for(int i = 0; i < 24; i++)
-      g_allowedHours[i] = true;
+      g_allowedHours[symIdx][i] = true;
+   g_useTimeFilter[symIdx] = false;
 
-   string hours = InpAllowedHours;
    StringTrimLeft(hours);
    StringTrimRight(hours);
 
    if(StringLen(hours) == 0)
       return;  // No filter — all hours allowed
 
-   g_useTimeFilter = true;
+   g_useTimeFilter[symIdx] = true;
 
-   // Block all, then enable specified hours
    for(int i = 0; i < 24; i++)
-      g_allowedHours[i] = false;
+      g_allowedHours[symIdx][i] = false;
 
    string parts[];
    int count = StringSplit(hours, ',', parts);
@@ -54,18 +52,34 @@ void ParseAllowedHours() {
       StringTrimRight(parts[i]);
       int h = (int)StringToInteger(parts[i]);
       if(h >= 0 && h < 24)
-         g_allowedHours[h] = true;
+         g_allowedHours[symIdx][h] = true;
    }
 }
 
 //+------------------------------------------------------------------+
-//| Check if current server hour allows entry                          |
+//| Parse allowed hours for all symbols                                |
 //+------------------------------------------------------------------+
-bool IsEntryHourAllowed() {
-   if(!g_useTimeFilter) return true;
+void ParseAllowedHours() {
+   for(int i = 0; i < g_symbolCount; i++) {
+      string sym = g_symbols[i].name;
+      string hours = "";
+      if(sym == "EURUSD")      hours = InpAllowedHoursEURUSD;
+      else if(sym == "USDJPY") hours = InpAllowedHoursUSDJPY;
+      else if(sym == "EURJPY") hours = InpAllowedHoursEURJPY;
+      else if(sym == "XAUUSD") hours = InpAllowedHoursXAUUSD;
+      else if(sym == "GBPUSD") hours = InpAllowedHoursGBPUSD;
+      ParseHoursString(hours, i);
+   }
+}
+
+//+------------------------------------------------------------------+
+//| Check if current server hour allows entry for symbol               |
+//+------------------------------------------------------------------+
+bool IsEntryHourAllowed(int symIdx) {
+   if(!g_useTimeFilter[symIdx]) return true;
    MqlDateTime dt;
    TimeCurrent(dt);
-   return g_allowedHours[dt.hour];
+   return g_allowedHours[symIdx][dt.hour];
 }
 
 //+------------------------------------------------------------------+
@@ -166,7 +180,17 @@ int OnInit() {
    g_logger.Info(StringFormat("  Emergency SL budget: $%.0f/symbol", InpSLBudgetUSD));
    g_logger.Info(StringFormat("  News filter: %s", InpNewsFilter ? "ON" : "OFF"));
    g_logger.Info(StringFormat("  Relaxed entry: %s", InpRelaxedEntry ? "ON" : "OFF"));
-   g_logger.Info(StringFormat("  Entry hours: %s", g_useTimeFilter ? InpAllowedHours : "ALL"));
+   for(int i = 0; i < g_symbolCount; i++) {
+      string hourList = "";
+      if(g_useTimeFilter[i]) {
+         for(int h = 0; h < 24; h++)
+            if(g_allowedHours[i][h])
+               hourList += (StringLen(hourList) > 0 ? "," : "") + IntegerToString(h);
+      } else {
+         hourList = "ALL";
+      }
+      g_logger.Info(StringFormat("  Entry hours %s: %s", g_symbols[i].name, hourList));
+   }
    g_logger.Info("============================================================");
 
    return INIT_SUCCEEDED;
@@ -193,19 +217,6 @@ void OnTimer() {
 //| Tick event — used in tester mode                                  |
 //+------------------------------------------------------------------+
 void OnTick() {
-   static int tickCount = 0;
-   tickCount++;
-   if(tickCount <= 3) {
-      PrintFormat("[TICK#%d] g_isTester=%d, symbolCount=%d, symbol=%s",
-                  tickCount, g_isTester, g_symbolCount,
-                  g_symbolCount > 0 ? g_symbols[0].name : "NONE");
-      PrintFormat("[TICK#%d] M30 bars=%d, H4 bars=%d, warmedUp_M30=%d, warmedUp_H4=%d",
-                  tickCount,
-                  Bars(_Symbol, InpEntryTF),
-                  Bars(_Symbol, InpFilterTF),
-                  g_symbolCount > 0 ? g_grid.IsWarmedUp(0, 0) : -1,
-                  g_symbolCount > 0 ? g_grid.IsWarmedUp(0, 1) : -1);
-   }
    if(g_isTester) {
       ProcessAllSymbols();
    }
@@ -251,24 +262,24 @@ void ProcessSymbol(int symIdx) {
          break;
 
       case ACTION_ENTER_LONG:
-         if(g_risk.CanEnter() && g_news.CanEnter(sym) && IsEntryHourAllowed() && IsSpreadAllowed(sym))
+         if(g_risk.CanEnter() && g_news.CanEnter(sym) && IsEntryHourAllowed(symIdx) && IsSpreadAllowed(sym))
             DoEnter(symIdx, 1);
          break;
 
       case ACTION_ENTER_SHORT:
-         if(g_risk.CanEnter() && g_news.CanEnter(sym) && IsEntryHourAllowed() && IsSpreadAllowed(sym))
+         if(g_risk.CanEnter() && g_news.CanEnter(sym) && IsEntryHourAllowed(symIdx) && IsSpreadAllowed(sym))
             DoEnter(symIdx, -1);
          break;
 
       case ACTION_REVERSE_LONG:
          DoExit(symIdx);
-         if(g_risk.CanEnter() && g_news.CanEnter(sym) && IsEntryHourAllowed() && IsSpreadAllowed(sym))
+         if(g_risk.CanEnter() && g_news.CanEnter(sym) && IsEntryHourAllowed(symIdx) && IsSpreadAllowed(sym))
             DoEnter(symIdx, 1);
          break;
 
       case ACTION_REVERSE_SHORT:
          DoExit(symIdx);
-         if(g_risk.CanEnter() && g_news.CanEnter(sym) && IsEntryHourAllowed() && IsSpreadAllowed(sym))
+         if(g_risk.CanEnter() && g_news.CanEnter(sym) && IsEntryHourAllowed(symIdx) && IsSpreadAllowed(sym))
             DoEnter(symIdx, -1);
          break;
    }

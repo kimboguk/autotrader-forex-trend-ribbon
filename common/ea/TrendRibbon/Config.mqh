@@ -40,9 +40,19 @@ input int    InpNewsBeforeMin   = 2;      // Minutes before event
 input int    InpNewsAfterMin    = 2;      // Minutes after event
 
 //--- Entry Time Filter (server time, FTMO UTC+1)
+//    KST → Server(UTC+1): subtract 8 hours
+//    EURUSD: KST 17,18,20,21,22 → Server 9,10,12,13,14
+//    USDJPY: KST 8,21,22 → Server 0,13,14
+//    EURJPY: KST 21,22 → Server 13,14
+//    XAUUSD: KST 2,15,22 → Server 18,7,14
+//    GBPUSD: KST 1,17,21,22 → Server 17,9,13,14
 input group "=== Entry Time Filter ==="
-input string InpAllowedHours = "9,10,12,13,14"; // Allowed entry hours (server time, empty=all)
-input int    InpMaxSpreadPts  = 10;             // Max spread in points (10=1pip, 0=no filter)
+input string InpAllowedHoursEURUSD = "9,10,12,13,14";  // EURUSD allowed hours (server)
+input string InpAllowedHoursUSDJPY = "0,13,14";         // USDJPY allowed hours (server)
+input string InpAllowedHoursEURJPY = "13,14";           // EURJPY allowed hours (server)
+input string InpAllowedHoursXAUUSD = "7,14,18";         // XAUUSD allowed hours (server)
+input string InpAllowedHoursGBPUSD = "9,13,14,17";      // GBPUSD allowed hours (server)
+input int    InpMaxSpreadPts       = 10;                 // Max spread in points (10=1pip, 0=no filter)
 
 //--- Execution
 input group "=== Execution ==="
