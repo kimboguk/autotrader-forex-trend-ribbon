@@ -25,8 +25,8 @@ SYMBOLS = {
     "EURUSD": {"pip_size": 0.0001, "spread_pips": 0.4, "commission_pips": 0.3, "category": "forex", "quote_ccy": "USD"},
     "USDJPY": {"pip_size": 0.01,   "spread_pips": 0.5, "commission_pips": 0.3, "category": "forex", "quote_ccy": "JPY"},
     "GBPUSD": {"pip_size": 0.0001, "spread_pips": 0.5, "commission_pips": 0.3, "category": "forex", "quote_ccy": "USD"},
-    "EURJPY": {"pip_size": 0.01,   "spread_pips": 0.6, "commission_pips": 0.3, "category": "forex", "quote_ccy": "JPY"},
-    "XAUUSD": {"pip_size": 0.10,   "spread_pips": 3.0, "commission_pips": 0.7, "category": "forex", "quote_ccy": "USD", "lot_size": 100},
+    "EURJPY": {"pip_size": 0.01,   "spread_pips": 1.2, "commission_pips": 0.3, "category": "forex", "quote_ccy": "JPY"},
+    "XAUUSD": {"pip_size": 0.10,   "spread_pips": 6.6, "commission_pips": 0.7, "category": "forex", "quote_ccy": "USD", "lot_size": 100},
     "USDCHF": {"pip_size": 0.0001, "spread_pips": 0.5, "commission_pips": 0.3, "category": "forex", "quote_ccy": "CHF"},
     "AUDUSD": {"pip_size": 0.0001, "spread_pips": 0.5, "commission_pips": 0.3, "category": "forex", "quote_ccy": "USD"},
     "NZDUSD": {"pip_size": 0.0001, "spread_pips": 0.6, "commission_pips": 0.3, "category": "forex", "quote_ccy": "USD"},
@@ -84,7 +84,7 @@ def _kst_to_data_hours(kst_hours):
 
 ALLOWED_ENTRY_HOURS_KST_BY_SYMBOL = {
     "EURUSD": {17, 18, 20, 21, 22},         # 런던 오후~뉴욕 전반
-    "USDJPY": {8, 21, 22},                   # 도쿄 장 + 런던-뉴욕 오버랩
+    "USDJPY": {21, 22},                      # 런던-뉴욕 오버랩
     "EURJPY": {21, 22},                      # 런던-뉴욕 오버랩
     "XAUUSD": {2, 15, 22},                   # 뉴욕 후반 + 런던 개시 + 런던-뉴욕 오버랩
     "GBPUSD": {1, 17, 21, 22},               # 뉴욕 후반 + 런던 개시 + 런던-뉴욕 오버랩
