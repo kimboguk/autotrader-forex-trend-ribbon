@@ -42,6 +42,7 @@ input int    InpNewsAfterMin    = 2;      // Minutes after event
 //--- Entry Time Filter (server time, FTMO UTC+1)
 input group "=== Entry Time Filter ==="
 input string InpAllowedHours = "9,10,12,13,14"; // Allowed entry hours (server time, empty=all)
+input int    InpMaxSpreadPts  = 10;             // Max spread in points (10=1pip, 0=no filter)
 
 //--- Execution
 input group "=== Execution ==="

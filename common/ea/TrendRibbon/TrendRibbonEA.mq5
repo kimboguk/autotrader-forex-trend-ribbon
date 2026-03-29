@@ -69,6 +69,15 @@ bool IsEntryHourAllowed() {
 }
 
 //+------------------------------------------------------------------+
+//| Check if current spread is acceptable for entry                    |
+//+------------------------------------------------------------------+
+bool IsSpreadAllowed(string sym) {
+   if(InpMaxSpreadPts <= 0) return true;
+   long spread = SymbolInfoInteger(sym, SYMBOL_SPREAD);
+   return (spread <= InpMaxSpreadPts);
+}
+
+//+------------------------------------------------------------------+
 //| Expert initialization                                             |
 //+------------------------------------------------------------------+
 int OnInit() {
@@ -242,24 +251,24 @@ void ProcessSymbol(int symIdx) {
          break;
 
       case ACTION_ENTER_LONG:
-         if(g_risk.CanEnter() && g_news.CanEnter(sym) && IsEntryHourAllowed())
+         if(g_risk.CanEnter() && g_news.CanEnter(sym) && IsEntryHourAllowed() && IsSpreadAllowed(sym))
             DoEnter(symIdx, 1);
          break;
 
       case ACTION_ENTER_SHORT:
-         if(g_risk.CanEnter() && g_news.CanEnter(sym) && IsEntryHourAllowed())
+         if(g_risk.CanEnter() && g_news.CanEnter(sym) && IsEntryHourAllowed() && IsSpreadAllowed(sym))
             DoEnter(symIdx, -1);
          break;
 
       case ACTION_REVERSE_LONG:
          DoExit(symIdx);
-         if(g_risk.CanEnter() && g_news.CanEnter(sym) && IsEntryHourAllowed())
+         if(g_risk.CanEnter() && g_news.CanEnter(sym) && IsEntryHourAllowed() && IsSpreadAllowed(sym))
             DoEnter(symIdx, 1);
          break;
 
       case ACTION_REVERSE_SHORT:
          DoExit(symIdx);
-         if(g_risk.CanEnter() && g_news.CanEnter(sym) && IsEntryHourAllowed())
+         if(g_risk.CanEnter() && g_news.CanEnter(sym) && IsEntryHourAllowed() && IsSpreadAllowed(sym))
             DoEnter(symIdx, -1);
          break;
    }

@@ -165,14 +165,14 @@ class TrendRibbonTrader:
             self._do_exit(symbol, pos)
 
         elif act in ("enter_long", "enter_short"):
-            if self.risk.can_enter() and self._news_allows_entry(symbol) and self._hour_allows_entry():
+            if self.risk.can_enter() and self._news_allows_entry(symbol) and self._hour_allows_entry(symbol):
                 direction = 1 if act == "enter_long" else -1
                 self._do_enter(symbol, direction, acct)
 
         elif act in ("reverse_long", "reverse_short"):
             # Exit first (always allowed), then enter if permitted
             self._do_exit(symbol, pos)
-            if self.risk.can_enter() and self._news_allows_entry(symbol) and self._hour_allows_entry():
+            if self.risk.can_enter() and self._news_allows_entry(symbol) and self._hour_allows_entry(symbol):
                 direction = 1 if act == "reverse_long" else -1
                 self._do_enter(symbol, direction, acct)
 
@@ -180,6 +180,10 @@ class TrendRibbonTrader:
 
     def _do_enter(self, symbol: str, direction: int, acct: Dict):
         """Place a market order with emergency SL."""
+        # Spread filter
+        if not self._spread_allows_entry(symbol):
+            return
+
         lot_size = LOT_SIZES.get(symbol, 0.1)
         sym_cfg = SYMBOLS[symbol]
 
@@ -265,12 +269,33 @@ class TrendRibbonTrader:
             return True
         return self.news.can_enter(symbol)
 
-    def _hour_allows_entry(self) -> bool:
-        """Check if current KST hour allows entry."""
+    def _hour_allows_entry(self, symbol: str = None) -> bool:
+        """Check if current KST hour allows entry for the given symbol."""
         from datetime import datetime, timezone, timedelta
         kst = datetime.now(timezone(timedelta(hours=9)))
-        allowed_kst = {17, 18, 20, 21, 22}
-        return kst.hour in allowed_kst
+        allowed_by_symbol = {
+            "EURUSD": {17, 18, 20, 21, 22},
+            "USDJPY": {8, 21, 22},
+            "EURJPY": {21, 22},
+            "XAUUSD": {2, 15, 22},
+            "GBPUSD": {1, 17, 21, 22},
+        }
+        allowed = allowed_by_symbol.get(symbol, set())
+        if not allowed:
+            return True  # unknown symbol → allow all
+        return kst.hour in allowed
+
+    def _spread_allows_entry(self, symbol: str) -> bool:
+        """Check if current spread is acceptable (max 1 pip = 10 points)."""
+        max_spread_pts = 10  # 10 points = 1 pip for 5-digit broker
+        info = self.mt5.get_symbol_info(symbol)
+        if info is None:
+            return False
+        if info.spread > max_spread_pts:
+            logger.warning("Spread too high for %s: %d pts (max %d), skip entry",
+                           symbol, info.spread, max_spread_pts)
+            return False
+        return True
 
     @staticmethod
     def _position_direction(pos: Optional[Dict]) -> int:
