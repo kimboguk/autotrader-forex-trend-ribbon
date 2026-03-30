@@ -26,9 +26,21 @@ def calc_ma(series: pd.Series, period: int, ma_type: str = "ema") -> pd.Series:
 
 
 def compute_grid(df: pd.DataFrame, fast_period: int = 50, slow_period: int = 200,
-                 ma_type: str = "ema") -> pd.DataFrame:
+                 ma_type: str = "ema",
+                 use_kalman: bool = False, kalman_qr_ratio: float = 0.1) -> pd.DataFrame:
     """Compute fast and slow MAs."""
     result = df.copy()
+
+    if use_kalman:
+        from kalman_price_filter import KalmanPriceFilter
+        Q = 1e-3
+        R = Q / kalman_qr_ratio
+        kf_close = KalmanPriceFilter(Q=Q, R=R)
+        kf_open = KalmanPriceFilter(Q=Q, R=R)
+        import numpy as np
+        result["close"] = np.array([kf_close.update(c) for c in result["close"].values])
+        result["open"] = np.array([kf_open.update(o) for o in result["open"].values])
+
     result[f"ma_{fast_period}"] = calc_ma(result["close"], fast_period, ma_type)
     result[f"ma_{slow_period}"] = calc_ma(result["close"], slow_period, ma_type)
     return result
@@ -36,13 +48,15 @@ def compute_grid(df: pd.DataFrame, fast_period: int = 50, slow_period: int = 200
 
 def generate_signals(df: pd.DataFrame, ma_type: str = "ema",
                      fast_period: int = 50, slow_period: int = 200,
+                     use_kalman: bool = False, kalman_qr_ratio: float = 0.1,
                      **kwargs) -> pd.DataFrame:
     """
     Generate golden/dead cross signals.
 
     Returns DataFrame with 'signal' and 'position' columns added.
     """
-    grid = compute_grid(df, fast_period, slow_period, ma_type)
+    grid = compute_grid(df, fast_period, slow_period, ma_type,
+                        use_kalman=use_kalman, kalman_qr_ratio=kalman_qr_ratio)
 
     n = len(grid)
     signals = np.zeros(n, dtype=int)

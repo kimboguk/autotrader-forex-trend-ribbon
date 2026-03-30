@@ -100,7 +100,8 @@ def run_backtest(
     # 2) Generate signals
     if progress_callback:
         progress_callback(f"Generating {timeframe} signals...")
-    grid = generate_signals(df, ma_type, fast_period=fast_period, slow_period=slow_period)
+    grid = generate_signals(df, ma_type, fast_period=fast_period, slow_period=slow_period,
+                            use_kalman=use_kalman, kalman_qr_ratio=kalman_qr_ratio)
 
     # Build higher TF filters
     TF_RANK = {"D1": 5, "H4": 4, "H1": 3, "M30": 2, "M15": 1, "M5": 0, "M1": -1}
