@@ -80,6 +80,9 @@ def run_backtest(
     # Accept but ignore trend_grid-specific params
     d1_filter: bool = False,
     ribbon_periods: list = None,
+    compound: bool = False,
+    use_kalman: bool = False,
+    kalman_qr_ratio: float = 0.1,
 ) -> dict:
     """Run Golden Cross backtest."""
     ma_type = ma_type or _gc_config.MA_TYPE

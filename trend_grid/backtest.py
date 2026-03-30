@@ -56,6 +56,8 @@ def run_backtest(
     compound: bool = False,
     next_bar_open: bool = True,
     allowed_entry_hours: set = None,
+    use_kalman: bool = False,
+    kalman_qr_ratio: float = 0.1,
     # Accept but ignore other strategy params
     fast_period: int = None,
     slow_period: int = None,
@@ -81,7 +83,8 @@ def run_backtest(
     # 2) Compute grid (EA-style: signals computed inline during simulation)
     if progress_callback:
         progress_callback(f"Computing {timeframe} grid...")
-    grid = compute_grid(df, ma_type, periods=ribbon_periods)
+    grid = compute_grid(df, ma_type, periods=ribbon_periods,
+                        use_kalman=use_kalman, kalman_qr_ratio=kalman_qr_ratio)
 
     # Build higher TF filters
     TF_RANK = {"D1": 5, "H4": 4, "H1": 3, "M30": 2, "M15": 1, "M5": 0, "M1": -1}

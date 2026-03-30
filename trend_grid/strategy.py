@@ -63,8 +63,21 @@ def calc_ma(df: pd.DataFrame, period: int, ma_type: str = None) -> pd.Series:
 
 # -- Grid computation -----------------------------------------------------
 
-def compute_grid(df: pd.DataFrame, ma_type: str = None, periods: list = None) -> pd.DataFrame:
+def compute_grid(df: pd.DataFrame, ma_type: str = None, periods: list = None,
+                  use_kalman: bool = False, kalman_qr_ratio: float = 0.1) -> pd.DataFrame:
     result = df.copy()
+
+    # Apply Kalman filter to close/open if enabled (body+ema mode)
+    if use_kalman:
+        from kalman_price_filter import KalmanPriceFilter
+        Q = 1e-3
+        R = Q / kalman_qr_ratio
+        kf_close = KalmanPriceFilter(Q=Q, R=R)
+        kf_open = KalmanPriceFilter(Q=Q, R=R)
+        filtered_close = np.array([kf_close.update(c) for c in result["close"].values])
+        filtered_open = np.array([kf_open.update(o) for o in result["open"].values])
+        result["close"] = filtered_close
+        result["open"] = filtered_open
 
     # 항상 4개 MA 모두 계산 (chart/alignment용)
     for p in VWMA_PERIODS:
