@@ -28,10 +28,13 @@ from trade_engine import (
 def _build_tf_filter(symbol: str, filter_tf: str, target_index: pd.DatetimeIndex,
                      ma_type: str = None,
                      start: str = None, end: str = None,
-                     ribbon_periods: list = None) -> pd.Series:
+                     ribbon_periods: list = None,
+                     use_kalman: bool = False, kalman_qr_ratio: float = 0.1) -> pd.Series:
     """Build higher TF position filter aligned to target index."""
     df = load_ohlcv(symbol, filter_tf, start, end)
-    grid = generate_signals(df, ma_type, periods=ribbon_periods)
+    grid = generate_signals(df, ma_type, periods=ribbon_periods,
+                            relaxed_entry=True, use_kalman=use_kalman,
+                            kalman_qr_ratio=kalman_qr_ratio)
     pos = grid["position"].reindex(target_index, method="ffill").fillna(0).astype(int)
     return pos
 

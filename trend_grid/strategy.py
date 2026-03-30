@@ -96,7 +96,8 @@ def compute_grid(df: pd.DataFrame, ma_type: str = None, periods: list = None,
 
 # -- Signal generation -----------------------------------------------------
 
-def generate_signals(df: pd.DataFrame, ma_type: str = None, periods: list = None, relaxed_entry: bool = True) -> pd.DataFrame:
+def generate_signals(df: pd.DataFrame, ma_type: str = None, periods: list = None, relaxed_entry: bool = True,
+                      use_kalman: bool = False, kalman_qr_ratio: float = 0.1) -> pd.DataFrame:
     """
     Signal codes:
        0: no change
@@ -105,7 +106,8 @@ def generate_signals(df: pd.DataFrame, ma_type: str = None, periods: list = None
        2: short exit + long entry
       -2: long exit + short entry
     """
-    grid = compute_grid(df, ma_type, periods)
+    grid = compute_grid(df, ma_type, periods, use_kalman=use_kalman,
+                        kalman_qr_ratio=kalman_qr_ratio)
 
     n = len(grid)
     signals = np.zeros(n, dtype=int)
