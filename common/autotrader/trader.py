@@ -46,7 +46,8 @@ class TrendRibbonTrader:
     def __init__(self, dry_run: bool = False):
         self.dry_run = dry_run
         self.mt5 = MT5Client()
-        self.signals = SignalEngine(LIVE_SYMBOLS, MA_TYPE, MA_PERIODS)
+        self.signals = SignalEngine(LIVE_SYMBOLS, MA_TYPE, MA_PERIODS,
+                                    use_kalman=True, kalman_qr_ratio=0.1)
         self.risk = FTMORiskManager(FTMO)
         self.news = NewsFilter(NEWS_FILTER) if NEWS_FILTER.get("enabled") else None
         self.state_mgr = StateManager()

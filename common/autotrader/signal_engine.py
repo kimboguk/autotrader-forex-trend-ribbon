@@ -31,10 +31,13 @@ class SignalEngine:
     bar completes and a tradable signal exists, or None otherwise.
     """
 
-    def __init__(self, symbols: List[str], ma_type: str, periods: List[int]):
+    def __init__(self, symbols: List[str], ma_type: str, periods: List[int],
+                 use_kalman: bool = False, kalman_qr_ratio: float = 0.1):
         self.symbols = symbols
         self.ma_type = ma_type
         self.periods = periods
+        self.use_kalman = use_kalman
+        self.kalman_qr_ratio = kalman_qr_ratio
 
         # Last-processed bar timestamps (to detect new bar completion)
         self.last_m30_bar_time: Dict[str, datetime] = {}
@@ -87,7 +90,8 @@ class SignalEngine:
         self.last_m30_bar_time[symbol] = m30_bar_time
 
         # -- Compute M30 grid and check signal ---------------------
-        grid = compute_grid(m30, self.ma_type, self.periods)
+        grid = compute_grid(m30, self.ma_type, self.periods,
+                            use_kalman=self.use_kalman, kalman_qr_ratio=self.kalman_qr_ratio)
 
         signal = self._check_signal(grid, current_position)
 
