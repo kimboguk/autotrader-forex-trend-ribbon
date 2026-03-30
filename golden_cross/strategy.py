@@ -36,13 +36,16 @@ def compute_grid(df: pd.DataFrame, fast_period: int = 50, slow_period: int = 200
         Q = 1e-3
         R = Q / kalman_qr_ratio
         kf_close = KalmanPriceFilter(Q=Q, R=R)
-        kf_open = KalmanPriceFilter(Q=Q, R=R)
         import numpy as np
+        result["raw_close"] = result["close"].values.copy()
         result["close"] = np.array([kf_close.update(c) for c in result["close"].values])
-        result["open"] = np.array([kf_open.update(o) for o in result["open"].values])
 
     result[f"ma_{fast_period}"] = calc_ma(result["close"], fast_period, ma_type)
     result[f"ma_{slow_period}"] = calc_ma(result["close"], slow_period, ma_type)
+
+    if use_kalman:
+        result["close"] = result["raw_close"]
+
     return result
 
 

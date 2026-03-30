@@ -67,7 +67,9 @@ def compute_grid(df: pd.DataFrame, ma_type: str = None, periods: list = None,
                   use_kalman: bool = False, kalman_qr_ratio: float = 0.1) -> pd.DataFrame:
     result = df.copy()
 
-    # Apply Kalman filter to close/open if enabled (body+ema mode)
+    # Apply Kalman filter if enabled (body+ema mode)
+    # Filtered values used for EMA/grid/signal computation only.
+    # Raw open/close preserved for trade execution prices.
     if use_kalman:
         from kalman_price_filter import KalmanPriceFilter
         Q = 1e-3
@@ -76,6 +78,10 @@ def compute_grid(df: pd.DataFrame, ma_type: str = None, periods: list = None,
         kf_open = KalmanPriceFilter(Q=Q, R=R)
         filtered_close = np.array([kf_close.update(c) for c in result["close"].values])
         filtered_open = np.array([kf_open.update(o) for o in result["open"].values])
+        # Save raw prices for execution
+        result["raw_open"] = result["open"].values.copy()
+        result["raw_close"] = result["close"].values.copy()
+        # Replace with filtered for EMA/grid computation
         result["close"] = filtered_close
         result["open"] = filtered_open
 
@@ -90,6 +96,11 @@ def compute_grid(df: pd.DataFrame, ma_type: str = None, periods: list = None,
     result["grid_bottom"] = result[ma_cols].min(axis=1)
     result["body_mid"] = (result["open"] + result["close"]) / 2
     result["is_bullish"] = result["close"] >= result["open"]
+
+    # Restore raw prices for execution (open/close columns used by trade_engine)
+    if use_kalman:
+        result["open"] = result["raw_open"]
+        result["close"] = result["raw_close"]
 
     return result
 
