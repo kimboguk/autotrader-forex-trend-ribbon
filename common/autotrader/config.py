@@ -24,7 +24,7 @@ _tg_config = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_tg_config)
 _ALL_SYMBOLS = _tg_config.SYMBOLS
 
-LIVE_SYMBOLS = ["EURUSD", "USDJPY", "GBPUSD"]  # EURJPY/XAUUSD excluded (spread too high)
+LIVE_SYMBOLS = ["EURUSD", "USDJPY", "EURJPY", "GBPUSD"]  # XAUUSD excluded (spread too high)
 SYMBOLS = {s: _ALL_SYMBOLS[s] for s in LIVE_SYMBOLS}
 
 # ── Strategy parameters ────────────────────────────────────
