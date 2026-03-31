@@ -57,6 +57,7 @@ def run_backtest(
     progress_callback=None,
     _keep_cache: bool = False,
     compound: bool = False,
+    leverage: int = 1,
     next_bar_open: bool = True,
     allowed_entry_hours: set = None,
     use_kalman: bool = False,
@@ -122,6 +123,7 @@ def run_backtest(
         alignment_cols=alignment_col_names,
         progress_callback=progress_callback,
         compound=compound,
+        leverage=leverage,
         next_bar_open=next_bar_open,
         allowed_entry_hours=allowed_entry_hours,
     )

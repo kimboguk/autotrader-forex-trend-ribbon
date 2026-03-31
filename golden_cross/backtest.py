@@ -81,6 +81,7 @@ def run_backtest(
     d1_filter: bool = False,
     ribbon_periods: list = None,
     compound: bool = False,
+    leverage: int = 1,
     use_kalman: bool = False,
     kalman_qr_ratio: float = 0.1,
 ) -> dict:

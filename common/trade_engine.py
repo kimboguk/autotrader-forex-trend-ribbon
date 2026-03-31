@@ -86,6 +86,7 @@ def simulate_trades(
     alignment_cols: list = None,
     progress_callback=None,
     compound: bool = False,
+    leverage: int = 1,
     next_bar_open: bool = True,
     allowed_entry_hours: set = None,
 ) -> tuple[list[dict], np.ndarray]:
@@ -147,8 +148,8 @@ def simulate_trades(
         else:
             pnl_price = entry_price - exit_price
 
-        # Compound mode: scale position size proportionally to current equity
-        scale = (equity / initial_capital) if compound and equity > 0 else 1.0
+        # Scale: leverage * compound ratio
+        scale = ((equity / initial_capital) if compound and equity > 0 else 1.0) * leverage
 
         if category == "index":
             pnl = pnl_price * point_value * contracts * scale
