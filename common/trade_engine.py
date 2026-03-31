@@ -87,6 +87,7 @@ def simulate_trades(
     progress_callback=None,
     compound: bool = False,
     leverage: int = 1,
+    kelly_fraction: float = 0.0,
     next_bar_open: bool = True,
     allowed_entry_hours: set = None,
 ) -> tuple[list[dict], np.ndarray]:
@@ -125,6 +126,12 @@ def simulate_trades(
     initial_capital = BACKTEST_CONFIG["initial_capital"]
     equity = initial_capital
 
+    # Kelly position sizer (kelly_fraction > 0 enables Kelly compound mode)
+    kelly_sizer = None
+    if kelly_fraction > 0:
+        from kelly import KellyPositionSizer
+        kelly_sizer = KellyPositionSizer(kelly_fraction=kelly_fraction)
+
     tp_price = tp_pips * pip_size if tp_pips else None
     sl_price = sl_pips * pip_size if sl_pips else None
 
@@ -148,8 +155,13 @@ def simulate_trades(
         else:
             pnl_price = entry_price - exit_price
 
-        # Scale: leverage * compound ratio
-        scale = ((equity / initial_capital) if compound and equity > 0 else 1.0) * leverage
+        # Position scale
+        if kelly_sizer is not None:
+            scale = kelly_sizer.get_scale(equity, initial_capital) * leverage
+        elif compound and equity > 0:
+            scale = (equity / initial_capital) * leverage
+        else:
+            scale = 1.0 * leverage
 
         if category == "index":
             pnl = pnl_price * point_value * contracts * scale
@@ -167,6 +179,11 @@ def simulate_trades(
                 total_cost = total_cost / exit_price
 
         equity += pnl
+
+        # Record trade result for Kelly position sizer
+        if kelly_sizer is not None:
+            kelly_sizer.record_trade(pnl)
+
         trades.append({
             "entry_time": entry_time,
             "exit_time": exit_time,
