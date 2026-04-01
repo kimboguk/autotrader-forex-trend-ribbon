@@ -156,7 +156,7 @@ def simulate_trades(
             pnl_price = entry_price - exit_price
 
         # Position scale
-        if kelly_sizer is not None:
+        if compound and kelly_sizer is not None:
             scale = kelly_sizer.get_scale(equity, initial_capital) * leverage
         elif compound and equity > 0:
             scale = (equity / initial_capital) * leverage
