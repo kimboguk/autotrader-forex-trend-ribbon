@@ -29,7 +29,7 @@ def calc_mdd(pnl_list):
         if dd > max_dd: max_dd = dd
     return max_dd
 
-def run_dmi_dual_tf(entry_df, filter_df):
+def run_dmi_dual_tf(entry_df, filter_df, htf_exit: bool = False):
     dmi_e = compute_dmi(entry_df, DMI_PERIOD)
     swings = detect_fractal_swings(entry_df, FRACTAL_K)
     pdi_e = dmi_e['plus_di'].values
@@ -79,10 +79,11 @@ def run_dmi_dual_tf(entry_df, filter_df):
                 filter_exit = True
 
             entry_reverse = False
-            if entry_dir == 1:
-                entry_reverse = (ndi_e[i] > pdi_e[i]) and (ndi_e[i-1] <= pdi_e[i-1])
-            else:
-                entry_reverse = (pdi_e[i] > ndi_e[i]) and (pdi_e[i-1] <= ndi_e[i-1])
+            if not htf_exit:
+                if entry_dir == 1:
+                    entry_reverse = (ndi_e[i] > pdi_e[i]) and (ndi_e[i-1] <= pdi_e[i-1])
+                else:
+                    entry_reverse = (pdi_e[i] > ndi_e[i]) and (pdi_e[i-1] <= ndi_e[i-1])
 
             if filter_exit or entry_reverse:
                 ep = opens[i + 1]
@@ -142,12 +143,22 @@ print(f"{'Combo':<25} {'Trades':>6} {'WR%':>6} {'PF':>5} {'Pips':>9} {'MDD%':>7}
 print('-' * 90)
 
 all_results = {}
+print("\n=== baseline (filter_exit OR entry_reverse) ===")
 for name, entry_rule, filter_rule in combos:
     entry_df = resample(m1, entry_rule)
     filter_df = resample(m1, filter_rule)
-    trades = run_dmi_dual_tf(entry_df, filter_df)
+    trades = run_dmi_dual_tf(entry_df, filter_df, htf_exit=False)
     summary(trades, name)
     all_results[name] = trades
+
+print("\n=== htf_exit (filter TF direction change only) ===")
+all_results_htf = {}
+for name, entry_rule, filter_rule in combos:
+    entry_df = resample(m1, entry_rule)
+    filter_df = resample(m1, filter_rule)
+    trades = run_dmi_dual_tf(entry_df, filter_df, htf_exit=True)
+    summary(trades, name)
+    all_results_htf[name] = trades
 
 # Yearly breakdown for top combos
 for combo_name in ['M30+H4', 'H4+D1']:

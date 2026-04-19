@@ -29,16 +29,49 @@ from config import TIMEFRAMES
 from backtest import run_backtest, print_report, save_results
 
 
+def print_yearly_breakdown(trades_df: pd.DataFrame, label: str = ""):
+    """연도별 trades/WR/PF/PnL 출력"""
+    if len(trades_df) == 0:
+        print("  (no trades)")
+        return
+    df = trades_df.copy()
+    df["year"] = pd.to_datetime(df["entry_time"]).dt.year
+    print(f"\n  === {label} — Yearly Breakdown ===")
+    print(f"  {'Year':>6} {'Trades':>7} {'WR%':>7} {'PF':>7} {'Pips':>12} {'PnL($)':>12}")
+    print(f"  {'-'*60}")
+    for yr in sorted(df["year"].unique()):
+        sub = df[df["year"] == yr]
+        n = len(sub)
+        wr = (sub["pnl_usd"] > 0).mean() * 100
+        gw = sub.loc[sub["pnl_usd"] > 0, "pnl_usd"].sum()
+        gl = abs(sub.loc[sub["pnl_usd"] <= 0, "pnl_usd"].sum())
+        pf = gw / gl if gl > 0 else float("inf")
+        pips = sub["net_pnl_pips"].sum()
+        pnl = sub["pnl_usd"].sum()
+        print(f"  {yr:>6} {n:>7} {wr:>6.1f}% {pf:>7.2f} {pips:>+12.1f} {pnl:>+12.2f}")
+
+
 def run_single(symbol: str, timeframe: str, ma_type: str,
-               start: str = None, end: str = None, save: bool = True):
+               start: str = None, end: str = None, save: bool = True,
+               filter_tfs: list = None, htf_exit: bool = False,
+               yearly: bool = False):
     """단일 타임프레임 백테스트"""
+    label = f"{symbol} {timeframe} (MA: {ma_type})"
+    if filter_tfs:
+        label += f" +filter={','.join(filter_tfs)}"
+    if htf_exit:
+        label += " htf_exit"
     print(f"\n{'-'*60}")
-    print(f"  Running: {symbol} {timeframe} (MA: {ma_type})")
+    print(f"  Running: {label}")
     print(f"{'-'*60}")
 
     try:
-        result = run_backtest(symbol, timeframe, ma_type, start, end)
+        result = run_backtest(symbol, timeframe, ma_type, start, end,
+                              filter_tfs=filter_tfs, htf_exit=htf_exit)
         print_report(result["stats"])
+
+        if yearly:
+            print_yearly_breakdown(result["trades"], label)
 
         if save:
             save_results(result, symbol, timeframe, ma_type)
@@ -53,7 +86,9 @@ def run_single(symbol: str, timeframe: str, ma_type: str,
 
 
 def run_all_timeframes(symbol: str, ma_type: str, timeframes: list = None,
-                       start: str = None, end: str = None):
+                       start: str = None, end: str = None,
+                       filter_tfs: list = None, htf_exit: bool = False,
+                       yearly: bool = False):
     """전체 타임프레임 순차 실행 + 요약 테이블"""
     if timeframes is None:
         timeframes = TIMEFRAMES
@@ -61,7 +96,9 @@ def run_all_timeframes(symbol: str, ma_type: str, timeframes: list = None,
     all_stats = []
 
     for tf in timeframes:
-        stats = run_single(symbol, tf, ma_type, start, end)
+        stats = run_single(symbol, tf, ma_type, start, end,
+                           filter_tfs=filter_tfs, htf_exit=htf_exit,
+                           yearly=yearly)
         if stats:
             all_stats.append(stats)
 
@@ -154,6 +191,12 @@ def main():
     parser.add_argument("--start", default=None, help="시작일 (YYYY-MM-DD)")
     parser.add_argument("--end", default=None, help="종료일 (YYYY-MM-DD)")
     parser.add_argument("--no-save", action="store_true", help="결과 저장 안함")
+    parser.add_argument("--filter-tf", nargs="+", default=None,
+                        help="상위 TF 필터 (e.g., H4 D1)")
+    parser.add_argument("--htf-exit", action="store_true",
+                        help="청산을 상위 TF 기준으로 (현재 TF exit 신호 무시)")
+    parser.add_argument("--yearly", action="store_true",
+                        help="연도별 breakdown 출력")
     args = parser.parse_args()
 
     timeframes = args.tf if args.tf else TIMEFRAMES
@@ -161,7 +204,10 @@ def main():
     if args.compare:
         run_compare(args.symbol, timeframes, args.start, args.end)
     else:
-        run_all_timeframes(args.symbol, args.ma, timeframes, args.start, args.end)
+        run_all_timeframes(args.symbol, args.ma, timeframes,
+                           args.start, args.end,
+                           filter_tfs=args.filter_tf, htf_exit=args.htf_exit,
+                           yearly=args.yearly)
 
 
 if __name__ == "__main__":

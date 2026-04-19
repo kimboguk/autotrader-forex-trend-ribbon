@@ -90,6 +90,7 @@ def simulate_trades(
     kelly_fraction: float = 0.0,
     next_bar_open: bool = True,
     allowed_entry_hours: set = None,
+    htf_exit: bool = False,
 ) -> tuple[list[dict], np.ndarray]:
     """
     Bar-by-bar trade simulation on a DataFrame with 'signal' column.
@@ -316,6 +317,14 @@ def simulate_trades(
             long_exit = (not bull_arr[i]) and (bm_arr[i] < gt_arr[i])
             short_exit = bull_arr[i] and (bm_arr[i] > gb_arr[i])
 
+            # htf_exit: replace current-TF exit trigger with HTF position deviation
+            if htf_exit and filter_arrs:
+                eff_long_exit = not all(fp[i] == 1 for fp in filter_arrs.values())
+                eff_short_exit = not all(fp[i] == -1 for fp in filter_arrs.values())
+            else:
+                eff_long_exit = long_exit
+                eff_short_exit = short_exit
+
             # Determine action from actual position
             action = None  # "enter_long", "enter_short", "exit", "reverse_long", "reverse_short"
             if entry_dir == 0:
@@ -324,10 +333,10 @@ def simulate_trades(
                 elif short_entry:
                     action = "enter_short"
             elif entry_dir == 1:
-                if long_exit:
+                if eff_long_exit:
                     action = "reverse_short" if short_entry else "exit"
             elif entry_dir == -1:
-                if short_exit:
+                if eff_short_exit:
                     action = "reverse_long" if long_entry else "exit"
 
             if action is None:

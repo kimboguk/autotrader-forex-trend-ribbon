@@ -35,7 +35,9 @@ def _build_tf_filter(symbol: str, filter_tf: str, target_index: pd.DatetimeIndex
     grid = generate_signals(df, ma_type, periods=ribbon_periods,
                             relaxed_entry=True, use_kalman=use_kalman,
                             kalman_qr_ratio=kalman_qr_ratio)
-    pos = grid["position"].reindex(target_index, method="ffill").fillna(0).astype(int)
+    # shift(1): HTF position at bar labeled T is only known at T + bar_duration
+    # (bar close). Use previous HTF bar's position for lower-TF bars within T's window.
+    pos = grid["position"].shift(1).reindex(target_index, method="ffill").fillna(0).astype(int)
     return pos
 
 
@@ -63,6 +65,7 @@ def run_backtest(
     allowed_entry_hours: set = None,
     use_kalman: bool = False,
     kalman_qr_ratio: float = 0.1,
+    htf_exit: bool = False,
     # Accept but ignore other strategy params
     fast_period: int = None,
     slow_period: int = None,
@@ -128,6 +131,7 @@ def run_backtest(
         kelly_fraction=kelly_fraction,
         next_bar_open=next_bar_open,
         allowed_entry_hours=allowed_entry_hours,
+        htf_exit=htf_exit,
     )
 
     # 4) Compute stats
