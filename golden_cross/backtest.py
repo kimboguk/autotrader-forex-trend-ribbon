@@ -56,7 +56,9 @@ def _build_tf_filter(symbol: str, filter_tf: str, target_index: pd.DatetimeIndex
     """Build higher TF position filter using golden cross signals."""
     df = load_ohlcv(symbol, filter_tf, start, end)
     grid = generate_signals(df, ma_type, fast_period=fast_period, slow_period=slow_period)
-    pos = grid["position"].reindex(target_index, method="ffill").fillna(0).astype(int)
+    # shift(1): HTF position at bar labeled T is only known at T + bar_duration
+    # (bar close). Use previous HTF bar's position for lower-TF bars within T's window.
+    pos = grid["position"].shift(1).reindex(target_index, method="ffill").fillna(0).astype(int)
     return pos
 
 
@@ -77,6 +79,7 @@ def run_backtest(
     verbose: bool = True,
     progress_callback=None,
     _keep_cache: bool = False,
+    htf_exit: bool = False,
     # Accept but ignore trend_grid-specific params
     d1_filter: bool = False,
     ribbon_periods: list = None,
@@ -129,6 +132,7 @@ def run_backtest(
         sl_pips=sl_pips,
         filter_positions=filter_positions,
         progress_callback=progress_callback,
+        htf_exit=htf_exit,
     )
 
     # 4) Compute stats

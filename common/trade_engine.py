@@ -399,6 +399,21 @@ def simulate_trades(
         else:
             # ── Legacy: pre-computed signal column ──
             sig = sig_arr[i]
+
+            # htf_exit: HTF deviation forces exit (ignoring current-TF signal)
+            if htf_exit and filter_arrs and entry_dir != 0:
+                htf_deviated = not all(fp[i] == entry_dir for fp in filter_arrs.values())
+                if htf_deviated:
+                    if next_bar_open and i + 1 < n_bars:
+                        htf_exec_price = open_arr[i + 1]
+                        htf_exec_time = time_idx[i + 1]
+                    else:
+                        htf_exec_price = close
+                        htf_exec_time = t
+                    direction = "long" if entry_dir == 1 else "short"
+                    _record_trade(htf_exec_time, htf_exec_price, direction, "htf_exit")
+                    entry_dir = 0
+
             if sig == 0:
                 equity_arr[i] = equity
                 continue
@@ -430,7 +445,7 @@ def simulate_trades(
                     return all(vals[j] < vals[j+1] for j in range(len(vals)-1))
 
             if sig == 1:
-                if entry_dir == -1:
+                if entry_dir == -1 and not htf_exit:
                     _record_trade(exec_time, exec_price, "short", "signal")
                     entry_dir = 0
                 if entry_dir == 0:
@@ -439,7 +454,7 @@ def simulate_trades(
                         entry_time = exec_time
                         entry_dir = 1
             elif sig == -1:
-                if entry_dir == 1:
+                if entry_dir == 1 and not htf_exit:
                     _record_trade(exec_time, exec_price, "long", "signal")
                     entry_dir = 0
                 if entry_dir == 0:
@@ -448,23 +463,23 @@ def simulate_trades(
                         entry_time = exec_time
                         entry_dir = -1
             elif sig == 2:
-                if entry_dir == -1:
+                if entry_dir == -1 and not htf_exit:
                     _record_trade(exec_time, exec_price, "short", "signal")
-                if _filter_allows(1) and _alignment_allows(1):
-                    entry_price = exec_price
-                    entry_time = exec_time
-                    entry_dir = 1
-                else:
                     entry_dir = 0
+                if entry_dir == 0:
+                    if _filter_allows(1) and _alignment_allows(1):
+                        entry_price = exec_price
+                        entry_time = exec_time
+                        entry_dir = 1
             elif sig == -2:
-                if entry_dir == 1:
+                if entry_dir == 1 and not htf_exit:
                     _record_trade(exec_time, exec_price, "long", "signal")
-                if _filter_allows(-1) and _alignment_allows(-1):
-                    entry_price = exec_price
-                    entry_time = exec_time
-                    entry_dir = -1
-                else:
                     entry_dir = 0
+                if entry_dir == 0:
+                    if _filter_allows(-1) and _alignment_allows(-1):
+                        entry_price = exec_price
+                        entry_time = exec_time
+                        entry_dir = -1
 
         equity_arr[i] = equity
 

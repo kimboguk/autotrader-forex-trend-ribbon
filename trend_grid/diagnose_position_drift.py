@@ -240,7 +240,8 @@ def run_comparison(symbol: str, timeframe: str = "M30", filter_tf: str = "H4",
 
     filter_df = load_ohlcv(symbol, filter_tf, start, end)
     filter_grid = generate_signals(filter_df, MA_TYPE, periods=VWMA_PERIODS)
-    filter_positions = filter_grid["position"].reindex(entry_grid.index, method="ffill").fillna(0).astype(int)
+    # shift(1): avoid look-ahead — HTF bar close only known at end of bar
+    filter_positions = filter_grid["position"].shift(1).reindex(entry_grid.index, method="ffill").fillna(0).astype(int)
 
     ea_trades_list, ea_equity_arr = simulate_ea_style(entry_grid, filter_positions, symbol)
     ea_trades = pd.DataFrame(ea_trades_list) if ea_trades_list else pd.DataFrame()
